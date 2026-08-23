@@ -25,6 +25,14 @@ pub mut:
 	fireflies         []Firefly
 	dmg_nums          []DamageNum
 	particles         []Particle
+	hazard_zones      []HazardZone
+	dash_ghosts       []DashGhost
+	stage             StageType = .mad_forest
+	save_data         SaveData
+	boss_hp_bar_name  string
+	boss_hp_bar_pct   f64
+	achievement_msg   string
+	achievement_timer f64
 	upgrade_cards     []UpgradeChoice
 	selected_card     int
 	chest_items       []string
@@ -83,9 +91,12 @@ pub fn (mut g Game) init_textures(renderer &sdl.Renderer) {
 }
 
 pub fn new_game() Game {
+	sd := load_save_data()
 	mut g := Game{
 		state:       .character_select
 		difficulty:  .hard // Default to Hard for thrilling action
+		stage:       .mad_forest
+		save_data:   sd
 		is_coop:     false
 		hyper_mode:  true
 		game_speed:  1.0
@@ -102,6 +113,14 @@ pub fn (mut g Game) cycle_difficulty() {
 		.normal { DifficultyLevel.hard }
 		.hard { DifficultyLevel.inferno }
 		.inferno { DifficultyLevel.normal }
+	}
+}
+
+pub fn (mut g Game) cycle_stage() {
+	g.stage = match g.stage {
+		.mad_forest { StageType.inlaid_library }
+		.inlaid_library { StageType.castle_grounds }
+		.castle_grounds { StageType.mad_forest }
 	}
 }
 
@@ -128,6 +147,8 @@ pub fn (mut g Game) start_game(char1 CharacterClass, char2 CharacterClass, coop 
 	g.fireflies.clear()
 	g.dmg_nums.clear()
 	g.particles.clear()
+	g.hazard_zones.clear()
+	g.dash_ghosts.clear()
 	g.game_time = 0.0
 	g.spawn_timer = 0.0
 	g.prop_timer = 0.0
@@ -152,6 +173,15 @@ pub fn (mut g Game) start_game(char1 CharacterClass, char2 CharacterClass, coop 
 		p2_y := world_height / 2.0
 		mut p2 := create_player(1, char2, p2_x, p2_y)
 		g.players << p2
+	}
+
+	// Apply Permanent Power-Up Shop bonuses
+	for mut p in g.players {
+		p.max_hp += f64(g.save_data.health_lvl) * 10.0
+		p.hp = p.max_hp
+		p.speed += f64(g.save_data.speed_lvl) * 11.0
+		p.rerolls += g.save_data.rerolls_lvl
+		p.banishes += g.save_data.banish_lvl
 	}
 
 	for _ in 0 .. 50 {
@@ -181,12 +211,71 @@ pub fn (mut g Game) start_game(char1 CharacterClass, char2 CharacterClass, coop 
 	g.state = .playing
 }
 
+pub fn (mut g Game) perform_dash(p_idx int) {
+	if p_idx >= g.players.len {
+		return
+	}
+	mut p := unsafe { &g.players[p_idx] }
+	if p.dash_cooldown > 0 {
+		return
+	}
+	p.dash_cooldown = 3.0
+	p.dash_timer = 0.40
+	p.is_dashing = true
+	p.invuln_time = 0.40
+	g.sound_mgr.play_whip_sound()
+
+	dir_x := if p.vx != 0.0 { p.vx } else { (if p.facing_right { 1.0 } else { -1.0 }) }
+	dir_y := p.vy
+	ndx, ndy := normalize(dir_x, dir_y)
+
+	p.x = math.clamp(p.x + ndx * 220.0, 30.0, world_width - 30.0)
+	p.y = math.clamp(p.y + ndy * 220.0, 30.0, world_height - 30.0)
+
+	g.dash_ghosts << DashGhost{x: p.x, y: p.y, life: 0.35}
+}
+
+pub fn (mut g Game) buy_powerup(kind string) {
+	mut current_lvl := 0
+	match kind {
+		'might' { current_lvl = g.save_data.might_lvl }
+		'health' { current_lvl = g.save_data.health_lvl }
+		'speed' { current_lvl = g.save_data.speed_lvl }
+		'greed' { current_lvl = g.save_data.greed_lvl }
+		'growth' { current_lvl = g.save_data.growth_lvl }
+		'rerolls' { current_lvl = g.save_data.rerolls_lvl }
+		'banish' { current_lvl = g.save_data.banish_lvl }
+		else { return }
+	}
+	if current_lvl >= 5 {
+		return
+	}
+	cost := (current_lvl + 1) * 250
+	if g.save_data.total_gold >= cost {
+		g.save_data.total_gold -= cost
+		match kind {
+			'might' { g.save_data.might_lvl++ }
+			'health' { g.save_data.health_lvl++ }
+			'speed' { g.save_data.speed_lvl++ }
+			'greed' { g.save_data.greed_lvl++ }
+			'growth' { g.save_data.growth_lvl++ }
+			'rerolls' { g.save_data.rerolls_lvl++ }
+			'banish' { g.save_data.banish_lvl++ }
+			else {}
+		}
+		save_data_to_file(&g.save_data)
+		g.sound_mgr.play_gem_pickup_sound(100)
+	}
+}
+
 pub fn create_player(id int, char_class CharacterClass, x f64, y f64) Player {
 	name := match char_class {
 		.antonio { 'Antonio' }
 		.imelda { 'Imelda' }
 		.pasqualina { 'Pasqualina' }
 		.gennaro { 'Gennaro' }
+		.mortaccio { 'Mortaccio' }
+		.eleanor { 'Eleanor' }
 	}
 
 	mut p := Player{
@@ -210,6 +299,8 @@ pub fn create_player(id int, char_class CharacterClass, x f64, y f64) Player {
 		.imelda { WeaponType.magic_wand }
 		.pasqualina { WeaponType.holy_bible }
 		.gennaro { WeaponType.knife }
+		.mortaccio { WeaponType.axe }
+		.eleanor { WeaponType.prismatic_laser }
 	}
 	p.weapons << create_weapon(start_weapon)
 
@@ -388,6 +479,53 @@ pub fn create_weapon(kind WeaponType) Weapon {
 				area:     1.5
 			}
 		}
+		.thunder_loop {
+			Weapon{
+				kind:       .thunder_loop
+				level:      8
+				cooldown:   0.80
+				damage:     95.0
+				count:      6
+				area:       1.5
+				is_evolved: true
+			}
+		}
+		.hellfire {
+			Weapon{
+				kind:       .hellfire
+				level:      8
+				cooldown:   0.85
+				damage:     110.0
+				speed:      480.0
+				count:      5
+				area:       1.8
+				is_evolved: true
+			}
+		}
+		.supernova {
+			Weapon{
+				kind:       .supernova
+				level:      8
+				cooldown:   1.30
+				damage:     240.0
+				speed:      320.0
+				count:      3
+				area:       2.2
+				is_evolved: true
+			}
+		}
+		.gamma_ray {
+			Weapon{
+				kind:       .gamma_ray
+				level:      8
+				cooldown:   0.90
+				damage:     160.0
+				speed:      750.0
+				count:      3
+				area:       2.0
+				is_evolved: true
+			}
+		}
 	}
 }
 
@@ -483,6 +621,46 @@ pub fn (mut g Game) activate_ultimate(p_idx int) {
 				}
 			}
 		}
+		.mortaccio {
+			for i in 0 .. 30 {
+				ang := f64(i) * (math.pi / 15.0)
+				g.projectiles << Projectile{
+					kind:        .death_spiral
+					x:           p.x
+					y:           p.y
+					vx:          math.cos(ang) * 600.0
+					vy:          math.sin(ang) * 600.0
+					damage:      70.0
+					life:        2.5
+					max_life:    2.5
+					radius:      16.0
+					pierce:      999
+					angle:       ang
+					owner_id:    p.id
+					is_ultimate: true
+				}
+			}
+		}
+		.eleanor {
+			for i in 0 .. 16 {
+				ang := f64(i) * (math.pi / 8.0)
+				g.projectiles << Projectile{
+					kind:        .gamma_ray
+					x:           p.x
+					y:           p.y
+					vx:          math.cos(ang) * 900.0
+					vy:          math.sin(ang) * 900.0
+					damage:      90.0
+					life:        3.0
+					max_life:    3.0
+					radius:      24.0
+					pierce:      999
+					angle:       ang
+					owner_id:    p.id
+					is_ultimate: true
+				}
+			}
+		}
 	}
 }
 
@@ -540,6 +718,16 @@ pub fn (mut g Game) update(raw_dt f64) {
 			p.invuln_time -= dt
 		}
 
+		if p.dash_cooldown > 0 {
+			p.dash_cooldown -= dt
+		}
+		if p.dash_timer > 0 {
+			p.dash_timer -= dt
+			if p.dash_timer <= 0 {
+				p.is_dashing = false
+			}
+		}
+
 		if p.ultimate_meter < p.ultimate_max {
 			p.ultimate_meter = math.min(p.ultimate_max, p.ultimate_meter + dt * 3.5)
 		}
@@ -585,7 +773,32 @@ pub fn (mut g Game) update(raw_dt f64) {
 		}
 	}
 
+	for dg_i := g.dash_ghosts.len - 1; dg_i >= 0; dg_i-- {
+		mut dg := unsafe { &g.dash_ghosts[dg_i] }
+		dg.life -= dt
+		if dg.life <= 0 {
+			g.dash_ghosts.delete(dg_i)
+		}
+	}
+
+	// Active Boss Health Bar Tracking
+	g.boss_hp_bar_name = ''
+	g.boss_hp_bar_pct = 0.0
+	for e in g.enemies {
+		if e.is_boss && e.hp > 0 {
+			g.boss_hp_bar_name = if e.kind == .reaper_boss { 'LORD MORGOTH - REAPER KING' } else { 'ELITE HORDE BOSS' }
+			g.boss_hp_bar_pct = math.clamp(e.hp / e.max_hp, 0.0, 1.0)
+			break
+		}
+	}
+
+	if g.achievement_timer > 0 {
+		g.achievement_timer -= dt
+	}
+
 	if all_dead && g.players.len > 0 {
+		g.save_data.total_gold += g.players[0].gold
+		save_data_to_file(&g.save_data)
 		g.state = .game_over
 		return
 	}
@@ -626,12 +839,18 @@ pub fn (mut g Game) update(raw_dt f64) {
 		}
 	}
 
+	if g.game_time >= 1800.0 {
+		g.state = .victory
+		return
+	}
+
 	g.update_spawner(dt)
 
 	if g.frozen_timer <= 0 {
 		g.update_enemies(dt)
 	}
 
+	g.update_hazard_zones(dt)
 	g.update_projectiles(dt)
 	g.update_enemy_projectiles(dt)
 	g.update_gems(dt)
@@ -766,6 +985,22 @@ pub fn (mut g Game) collect_floor_pickup(kind FloorPickupType, p_idx int) {
 
 pub fn (mut g Game) update_player_weapons(p_idx int, dt f64) {
 	mut p := unsafe { &g.players[p_idx] }
+
+	// Passive Stat Adjustments
+	hollow_lvl := p.get_passive_level(.hollow_heart)
+	target_max_hp := 120.0 + f64(hollow_lvl) * 20.0
+	if p.max_hp != target_max_hp {
+		diff := target_max_hp - p.max_hp
+		p.max_hp = target_max_hp
+		if diff > 0 {
+			p.hp = math.min(p.max_hp, p.hp + diff)
+		}
+	}
+	pum_lvl := p.get_passive_level(.pumarola)
+	if pum_lvl > 0 && p.hp < p.max_hp {
+		p.hp = math.min(p.max_hp, p.hp + dt * f64(pum_lvl) * 1.0)
+	}
+
 	cooldown_mult := math.max(0.25, 1.0 - f64(p.get_passive_level(.empty_tome)) * 0.10)
 	extra_proj := p.get_passive_level(.duplicator) * 2 + if p.char_class == .gennaro { 2 } else { 0 }
 	dmg_mult := 1.0 + f64(p.get_passive_level(.spinach)) * 0.15 + if p.char_class == .antonio { 0.15 } else { 0.0 }
@@ -952,6 +1187,27 @@ pub fn (mut g Game) update_player_weapons(p_idx int, dt f64) {
 						}
 					}
 				}
+				.thunder_loop {
+					g.sound_mgr.play_lightning_sound()
+					for _ in 0 .. proj_count {
+						if g.enemies.len > 0 {
+							target_idx := rand.int_in_range(0, g.enemies.len) or { 0 }
+							mut te := unsafe { &g.enemies[target_idx] }
+							g.projectiles << Projectile{
+								kind:       .thunder_loop
+								x:          te.x
+								y:          te.y
+								damage:     base_dmg
+								life:       0.45
+								max_life:   0.45
+								radius:     65.0 * w.area
+								pierce:     999
+								owner_id:   p.id
+								is_ultimate: true
+							}
+						}
+					}
+				}
 				.fire_wand {
 					g.sound_mgr.play_fire_sound()
 					for _ in 0 .. proj_count {
@@ -967,6 +1223,25 @@ pub fn (mut g Game) update_player_weapons(p_idx int, dt f64) {
 							max_life: 2.2
 							radius:   18.0
 							pierce:   6
+							owner_id: p.id
+						}
+					}
+				}
+				.hellfire {
+					g.sound_mgr.play_fire_sound()
+					for _ in 0 .. proj_count {
+						ang := rand.f64() * math.pi * 2.0
+						g.projectiles << Projectile{
+							kind:     .hellfire
+							x:        p.x
+							y:        p.y
+							vx:       math.cos(ang) * w.speed
+							vy:       math.sin(ang) * w.speed
+							damage:   base_dmg
+							life:     3.0
+							max_life: 3.0
+							radius:   28.0 * w.area
+							pierce:   999
 							owner_id: p.id
 						}
 					}
@@ -990,6 +1265,28 @@ pub fn (mut g Game) update_player_weapons(p_idx int, dt f64) {
 						}
 					}
 				}
+				.supernova {
+					g.sound_mgr.play_nuke_sound()
+					g.shake_timer = 0.40
+					g.flash_nuke = 0.20
+					for _ in 0 .. proj_count {
+						ang := rand.f64() * math.pi * 2.0
+						g.projectiles << Projectile{
+							kind:       .supernova
+							x:          p.x
+							y:          p.y
+							vx:         math.cos(ang) * w.speed
+							vy:         math.sin(ang) * w.speed
+							damage:     base_dmg
+							life:       2.5
+							max_life:   2.5
+							radius:     95.0 * w.area
+							pierce:     999
+							owner_id:   p.id
+							is_ultimate: true
+						}
+					}
+				}
 				.prismatic_laser {
 					g.sound_mgr.play_laser_sound()
 					for c_i in 0 .. proj_count {
@@ -1008,6 +1305,27 @@ pub fn (mut g Game) update_player_weapons(p_idx int, dt f64) {
 							pierce:   999
 							angle:    ang
 							owner_id: p.id
+						}
+					}
+				}
+				.gamma_ray {
+					g.sound_mgr.play_laser_sound()
+					for c_i in 0 .. proj_count {
+						ang := f64(c_i) * (2.0 * math.pi / f64(proj_count)) + g.game_time * 2.0
+						g.projectiles << Projectile{
+							kind:       .gamma_ray
+							x:          p.x
+							y:          p.y
+							vx:         math.cos(ang) * w.speed
+							vy:         math.sin(ang) * w.speed
+							damage:     base_dmg
+							life:       1.5
+							max_life:   1.5
+							radius:     35.0 * w.area
+							pierce:     999
+							angle:      ang
+							owner_id:   p.id
+							is_ultimate: true
 						}
 					}
 				}
@@ -1279,6 +1597,14 @@ pub fn (mut g Game) update_enemies(dt f64) {
 			}
 		}
 
+		// Knockback dampening & movement
+		if math.abs(e.kb_vx) > 0.05 || math.abs(e.kb_vy) > 0.05 {
+			e.x += e.kb_vx * dt
+			e.y += e.kb_vy * dt
+			e.kb_vx *= 0.86
+			e.kb_vy *= 0.86
+		}
+
 		if min_d > 0.001 {
 			dx, dy := normalize(closest_p.x - e.x, closest_p.y - e.y)
 			e.vx = dx * e.speed
@@ -1286,20 +1612,34 @@ pub fn (mut g Game) update_enemies(dt f64) {
 			e.x += e.vx * dt
 			e.y += e.vy * dt
 
-			// Enemy Ranged Shooting (Red Skulls and Reaper Boss)
-			if (e.kind == .red_skull || e.is_boss) && min_d < 450.0 {
+			// Enemy Ranged Shooting & Boss Telegraphed Hazards
+			if (e.kind == .red_skull || e.is_boss) && min_d < 500.0 {
 				e.shoot_timer += dt
 				fire_rate := if e.is_boss { 1.5 } else { 3.0 }
 				if e.shoot_timer >= fire_rate {
 					e.shoot_timer = 0.0
-					g.enemy_projectiles << EnemyProjectile{
-						x:      e.x
-						y:      e.y
-						vx:     dx * 260.0
-						vy:     dy * 260.0
-						damage: if e.is_boss { 30.0 } else { 16.0 }
-						life:   3.0
-						radius: if e.is_boss { 14.0 } else { 8.0 }
+					if e.is_boss && rand.f64() < 0.40 {
+						// Spawn Telegraphed Ground Warning Hazard
+						g.hazard_zones << HazardZone{
+							x:        closest_p.x + (rand.f64() * 60.0 - 30.0)
+							y:        closest_p.y + (rand.f64() * 60.0 - 30.0)
+							radius:   80.0
+							timer:    0.80
+							max_t:    0.80
+							damage:   35.0
+							target_x: closest_p.x
+							target_y: closest_p.y
+						}
+					} else {
+						g.enemy_projectiles << EnemyProjectile{
+							x:      e.x
+							y:      e.y
+							vx:     dx * 260.0
+							vy:     dy * 260.0
+							damage: if e.is_boss { 30.0 } else { 16.0 }
+							life:   3.0
+							radius: if e.is_boss { 14.0 } else { 8.0 }
+						}
 					}
 				}
 			}
@@ -1388,10 +1728,29 @@ pub fn (mut g Game) update_projectiles(dt f64) {
 				continue
 			}
 			if dist(pr.x, pr.y, e.x, e.y) < pr.radius + e.radius {
-				is_crit := pr.is_ultimate || rand.f64() < (if pr.kind == .bloody_tear { 0.35 } else { 0.15 })
+				clover_bonus := if pr.owner_id < g.players.len { f64(g.players[pr.owner_id].get_passive_level(.clover)) * 0.10 } else { 0.0 }
+				is_crit := pr.is_ultimate || rand.f64() < ((if pr.kind == .bloody_tear { 0.35 } else { 0.15 }) + clover_bonus)
 				dmg := if is_crit { pr.damage * 2.2 } else { pr.damage }
 				e.hp -= dmg
 				e.flash_time = 0.10
+
+				// Knockback Impulse
+				mut kx, mut ky := normalize(e.x - pr.x, e.y - pr.y)
+				if kx == 0.0 && ky == 0.0 {
+					kx = 1.0
+				}
+				kb_power := match pr.kind {
+					.whip, .bloody_tear { 160.0 }
+					.axe, .death_spiral { 180.0 }
+					.cataclysm_nuke, .supernova { 250.0 }
+					.holy_bible, .unholy_vespers { 120.0 }
+					.garlic, .soul_eater { 80.0 }
+					else { 90.0 }
+				}
+				if !e.is_boss {
+					e.kb_vx += kx * kb_power
+					e.kb_vy += ky * kb_power
+				}
 
 				if pr.kind == .bloody_tear && is_crit && pr.owner_id < g.players.len {
 					mut p := unsafe { &g.players[pr.owner_id] }
@@ -1428,6 +1787,41 @@ pub fn (mut g Game) update_projectiles(dt f64) {
 					break
 				}
 			}
+		}
+	}
+}
+
+pub fn (mut g Game) update_hazard_zones(dt f64) {
+	for i := g.hazard_zones.len - 1; i >= 0; i-- {
+		mut hz := unsafe { &g.hazard_zones[i] }
+		hz.timer -= dt
+		if hz.timer <= 0 && !hz.fired {
+			hz.fired = true
+			g.shake_timer = 0.35
+			g.sound_mgr.play_nuke_sound()
+			for p_idx in 0 .. g.players.len {
+				mut p := unsafe { &g.players[p_idx] }
+				if p.hp <= 0 || p.invuln_time > 0 {
+					continue
+				}
+				if dist(p.x, p.y, hz.x, hz.y) < hz.radius {
+					armor := f64(p.get_passive_level(.armor))
+					dmg := math.max(5.0, hz.damage - armor)
+					p.hp -= dmg
+					p.invuln_time = 0.40
+					g.sound_mgr.play_hurt_sound()
+					g.dmg_nums << DamageNum{
+						x:       p.x
+						y:       p.y - 15.0
+						val:     int(dmg)
+						life:    0.8
+						is_crit: true
+					}
+				}
+			}
+		}
+		if hz.timer <= -0.40 {
+			g.hazard_zones.delete(i)
 		}
 	}
 }
@@ -1563,6 +1957,26 @@ pub fn get_weapon_evolution(kind WeaponType, p &Player) (WeaponType, bool) {
 				return WeaponType.soul_eater, true
 			}
 		}
+		.lightning_ring {
+			if p.get_passive_level(.duplicator) >= 1 {
+				return WeaponType.thunder_loop, true
+			}
+		}
+		.fire_wand {
+			if p.get_passive_level(.spinach) >= 1 {
+				return WeaponType.hellfire, true
+			}
+		}
+		.cataclysm_nuke {
+			if p.get_passive_level(.hollow_heart) >= 1 {
+				return WeaponType.supernova, true
+			}
+		}
+		.prismatic_laser {
+			if p.get_passive_level(.clover) >= 1 {
+				return WeaponType.gamma_ray, true
+			}
+		}
 		else {}
 	}
 	return WeaponType.whip, false
@@ -1580,13 +1994,15 @@ pub fn (mut g Game) trigger_level_up(p_idx int) {
 			evolved_k, ok := get_weapon_evolution(w.kind, &p)
 			if ok {
 				e_name, e_desc := get_weapon_info(evolved_k)
-				g.upgrade_cards << UpgradeChoice{
-					is_weapon:    true
-					w_kind:       evolved_k
-					name:         e_name
-					desc:         e_desc
-					level:        8
-					is_evolution: true
+				if e_name !in p.banished_items {
+					g.upgrade_cards << UpgradeChoice{
+						is_weapon:    true
+						w_kind:       evolved_k
+						name:         e_name
+						desc:         e_desc
+						level:        8
+						is_evolution: true
+					}
 				}
 			}
 		}
@@ -1611,14 +2027,68 @@ pub fn (mut g Game) trigger_level_up(p_idx int) {
 		PassiveType.wings,
 		PassiveType.crown,
 		PassiveType.duplicator,
+		PassiveType.clover,
+		PassiveType.hollow_heart,
+		PassiveType.pumarola,
 	]
 
+	// Slot & Banish Filtered Lists
+	mut filtered_weapons := []WeaponType{}
+	for w_k in available_weapons {
+		w_name, _ := get_weapon_info(w_k)
+		if w_name in p.banished_items {
+			continue
+		}
+		mut owns := false
+		mut maxed := false
+		for w in p.weapons {
+			if w.kind == w_k {
+				owns = true
+				if w.level >= 8 {
+					maxed = true
+				}
+				break
+			}
+		}
+		if maxed {
+			continue
+		}
+		if owns || p.weapons.len < 6 {
+			filtered_weapons << w_k
+		}
+	}
+
+	mut filtered_passives := []PassiveType{}
+	for p_k in available_passives {
+		p_name, _ := get_passive_info(p_k)
+		if p_name in p.banished_items {
+			continue
+		}
+		mut owns := false
+		mut maxed := false
+		for pass in p.passives {
+			if pass.kind == p_k {
+				owns = true
+				if pass.level >= 5 {
+					maxed = true
+				}
+				break
+			}
+		}
+		if maxed {
+			continue
+		}
+		if owns || p.passives.len < 6 {
+			filtered_passives << p_k
+		}
+	}
+
 	for g.upgrade_cards.len < 3 {
-		is_w := rand.f64() < 0.60
-		if is_w && available_weapons.len > 0 {
-			idx := rand.int_in_range(0, available_weapons.len) or { 0 }
-			w_k := available_weapons[idx]
-			available_weapons.delete(idx)
+		is_w := rand.f64() < 0.55
+		if is_w && filtered_weapons.len > 0 {
+			idx := rand.int_in_range(0, filtered_weapons.len) or { 0 }
+			w_k := filtered_weapons[idx]
+			filtered_weapons.delete(idx)
 
 			mut lvl := 1
 			for w in p.weapons {
@@ -1635,10 +2105,10 @@ pub fn (mut g Game) trigger_level_up(p_idx int) {
 				desc:      w_desc
 				level:     lvl
 			}
-		} else if available_passives.len > 0 {
-			idx := rand.int_in_range(0, available_passives.len) or { 0 }
-			p_k := available_passives[idx]
-			available_passives.delete(idx)
+		} else if filtered_passives.len > 0 {
+			idx := rand.int_in_range(0, filtered_passives.len) or { 0 }
+			p_k := filtered_passives[idx]
+			filtered_passives.delete(idx)
 
 			mut lvl := 1
 			for pass in p.passives {
@@ -1659,6 +2129,61 @@ pub fn (mut g Game) trigger_level_up(p_idx int) {
 			break
 		}
 	}
+
+	if g.upgrade_cards.len == 0 {
+		g.upgrade_cards << UpgradeChoice{
+			is_weapon: false
+			p_kind:    .crown
+			name:      'GOLD COIN BAG'
+			desc:      'Full inventory bonus: Grants +350 Gold Coins'
+			level:     1
+		}
+	}
+}
+
+pub fn (mut g Game) reroll_upgrades(p_idx int) {
+	if p_idx >= g.players.len {
+		return
+	}
+	mut p := unsafe { &g.players[p_idx] }
+	if p.rerolls <= 0 {
+		return
+	}
+	p.rerolls--
+	g.sound_mgr.play_gem_pickup_sound(50)
+	g.trigger_level_up(p_idx)
+}
+
+pub fn (mut g Game) skip_upgrade(p_idx int) {
+	if p_idx >= g.players.len {
+		return
+	}
+	mut p := unsafe { &g.players[p_idx] }
+	if p.skips <= 0 {
+		return
+	}
+	p.skips--
+	p.exp += 50
+	p.gold += 100
+	g.sound_mgr.play_gem_pickup_sound(50)
+	g.state = .playing
+}
+
+pub fn (mut g Game) banish_upgrade(p_idx int, card_idx int) {
+	if p_idx >= g.players.len || card_idx < 0 || card_idx >= g.upgrade_cards.len {
+		return
+	}
+	mut p := unsafe { &g.players[p_idx] }
+	if p.banishes <= 0 {
+		return
+	}
+	p.banishes--
+	card := g.upgrade_cards[card_idx]
+	if card.name !in p.banished_items {
+		p.banished_items << card.name
+	}
+	g.sound_mgr.play_smash_sound()
+	g.trigger_level_up(p_idx)
 }
 
 pub fn (mut g Game) select_upgrade(card_idx int) {
@@ -1667,6 +2192,13 @@ pub fn (mut g Game) select_upgrade(card_idx int) {
 	}
 	card := g.upgrade_cards[card_idx]
 	mut p := unsafe { &g.players[0] }
+
+	if card.name == 'GOLD COIN BAG' {
+		p.gold += 350
+		g.sound_mgr.play_gem_pickup_sound(100)
+		g.state = .playing
+		return
+	}
 
 	if card.is_weapon {
 		if card.is_evolution {
@@ -1679,6 +2211,10 @@ pub fn (mut g Game) select_upgrade(card_idx int) {
 					.death_spiral { WeaponType.axe }
 					.unholy_vespers { WeaponType.holy_bible }
 					.soul_eater { WeaponType.garlic }
+					.thunder_loop { WeaponType.lightning_ring }
+					.hellfire { WeaponType.fire_wand }
+					.supernova { WeaponType.cataclysm_nuke }
+					.gamma_ray { WeaponType.prismatic_laser }
 					else { WeaponType.whip }
 				}
 				if p.weapons[w_i].kind == base_match {
@@ -1698,7 +2234,7 @@ pub fn (mut g Game) select_upgrade(card_idx int) {
 					break
 				}
 			}
-			if !found {
+			if !found && p.weapons.len < 6 {
 				p.weapons << create_weapon(card.w_kind)
 			}
 		}
@@ -1711,7 +2247,7 @@ pub fn (mut g Game) select_upgrade(card_idx int) {
 				break
 			}
 		}
-		if !found {
+		if !found && p.passives.len < 6 {
 			p.passives << Passive{kind: card.p_kind, level: 1}
 		}
 	}
@@ -1742,6 +2278,10 @@ pub fn get_weapon_info(kind WeaponType) (string, string) {
 		.fire_wand { 'FIRE WAND', 'Launches high-damage fiery blasts' }
 		.cataclysm_nuke { 'CATACLYSM NUKE', 'Massive holy cluster bomb with huge blast wave' }
 		.prismatic_laser { 'PRISMATIC LASER', 'Colossal piercing death beam that melts swarms' }
+		.thunder_loop { 'THUNDER LOOP', 'EVOLVED: Bouncing chain lightning strikes double target swarms' }
+		.hellfire { 'HELLFIRE', 'EVOLVED: Giant fiery meteors that pierce all obstacles' }
+		.supernova { 'SUPERNOVA', 'EVOLVED: Massive cosmic implosion leaves radioactive holy pools' }
+		.gamma_ray { 'GAMMA RAY', 'EVOLVED: Continuous 360-degree orbital beam of total annihilation' }
 	}
 }
 
@@ -1753,6 +2293,9 @@ pub fn get_passive_info(kind PassiveType) (string, string) {
 		.wings { 'WINGS', '+15% Movement speed per level' }
 		.crown { 'CROWN', '+15% EXP gained per level' }
 		.duplicator { 'DUPLICATOR', '+2 Extra projectiles for all weapons' }
+		.clover { 'CLOVER', '+10% Critical strike chance per level' }
+		.hollow_heart { 'HOLLOW HEART', '+20 Max HP per level' }
+		.pumarola { 'PUMAROLA', '+1.0 HP Regeneration per second per level' }
 	}
 }
 

@@ -92,6 +92,7 @@ fn test_weapon_evolutions_and_pickups() {
 	assert bt.damage >= 40.0
 
 	mut g := new_game()
+	g.save_data = SaveData{}
 	g.start_game(.antonio, .imelda, false)
 	g.breakables << BreakableProp{x: 150.0, y: 150.0, hp: 1.0, is_urn: false}
 	assert g.breakables.len >= 1
@@ -135,3 +136,122 @@ fn test_weapon_evolutions_and_pickups() {
 	g.cycle_difficulty()
 	assert g.difficulty == .normal
 }
+
+fn test_all_weapon_evolutions_and_new_passives() {
+	mut p := create_player(0, .antonio, 200.0, 200.0)
+
+	// Lightning Ring + Duplicator -> Thunder Loop
+	p.passives << Passive{kind: .duplicator, level: 1}
+	evo1, ok1 := get_weapon_evolution(.lightning_ring, &p)
+	assert ok1 && evo1 == .thunder_loop
+
+	// Fire Wand + Spinach -> Hellfire
+	p.passives << Passive{kind: .spinach, level: 1}
+	evo2, ok2 := get_weapon_evolution(.fire_wand, &p)
+	assert ok2 && evo2 == .hellfire
+
+	// Cataclysm Nuke + Hollow Heart -> Supernova
+	p.passives << Passive{kind: .hollow_heart, level: 1}
+	evo3, ok3 := get_weapon_evolution(.cataclysm_nuke, &p)
+	assert ok3 && evo3 == .supernova
+
+	// Prismatic Laser + Clover -> Gamma Ray
+	p.passives << Passive{kind: .clover, level: 1}
+	evo4, ok4 := get_weapon_evolution(.prismatic_laser, &p)
+	assert ok4 && evo4 == .gamma_ray
+
+	// Verify weapon creation stats
+	tl := create_weapon(.thunder_loop)
+	assert tl.is_evolved && tl.count >= 6
+	hf := create_weapon(.hellfire)
+	assert hf.is_evolved && hf.damage >= 100.0
+	sn := create_weapon(.supernova)
+	assert sn.is_evolved && sn.damage >= 200.0
+	gr := create_weapon(.gamma_ray)
+	assert gr.is_evolved && gr.speed >= 700.0
+}
+
+fn test_reroll_skip_banish_and_slot_limits() {
+	mut g := new_game()
+	g.start_game(.antonio, .imelda, false)
+
+	assert g.players[0].rerolls == 2
+	assert g.players[0].skips == 2
+	assert g.players[0].banishes == 2
+
+	g.trigger_level_up(0)
+	assert g.state == .level_up
+	initial_card := g.upgrade_cards[0].name
+
+	// Banish card 0
+	g.banish_upgrade(0, 0)
+	assert g.players[0].banishes == 1
+	assert initial_card in g.players[0].banished_items
+
+	// Reroll upgrades
+	g.reroll_upgrades(0)
+	assert g.players[0].rerolls == 1
+
+	// Skip upgrade
+	g.skip_upgrade(0)
+	assert g.players[0].skips == 1
+	assert g.state == .playing
+
+	// Test 6-Weapon Slot Limit
+	for w_k in [WeaponType.magic_wand, WeaponType.knife, WeaponType.axe, WeaponType.holy_bible, WeaponType.garlic] {
+		g.players[0].weapons << create_weapon(w_k)
+	}
+	assert g.players[0].weapons.len == 6
+}
+
+fn test_30min_victory_condition() {
+	mut g := new_game()
+	g.start_game(.antonio, .imelda, false)
+	assert g.state == .playing
+
+	g.update(1801.0)
+	assert g.state == .victory
+}
+
+fn test_powerup_shop_and_save_data() {
+	mut g := new_game()
+	g.save_data = SaveData{
+		unlocked_stages: ['mad_forest']
+		unlocked_chars:  ['antonio', 'imelda', 'pasqualina', 'gennaro']
+	}
+	g.save_data.total_gold = 1000
+	g.buy_powerup('might')
+	assert g.save_data.might_lvl == 1
+	assert g.save_data.total_gold == 750
+
+	g.buy_powerup('health')
+	assert g.save_data.health_lvl == 1
+	assert g.save_data.total_gold == 500
+
+	g.start_game(.antonio, .imelda, false)
+	assert g.players[0].max_hp == 130.0
+}
+
+fn test_dash_and_stages() {
+	mut g := new_game()
+	g.start_game(.antonio, .imelda, false)
+	assert g.stage == .mad_forest
+
+	g.cycle_stage()
+	assert g.stage == .inlaid_library
+
+	g.perform_dash(0)
+	assert g.players[0].is_dashing
+	assert g.players[0].dash_cooldown > 0
+}
+
+fn test_new_characters() {
+	p_mort := create_player(0, .mortaccio, 100.0, 100.0)
+	assert p_mort.name == 'Mortaccio'
+	assert p_mort.weapons[0].kind == .axe
+
+	p_elea := create_player(0, .eleanor, 100.0, 100.0)
+	assert p_elea.name == 'Eleanor'
+	assert p_elea.weapons[0].kind == .prismatic_laser
+}
+

@@ -112,8 +112,11 @@ pub fn draw_text_centered(renderer &sdl.Renderer, cx int, y int, text string, sc
 // Main Render Function
 pub fn (g &Game) render(renderer &sdl.Renderer) {
 	match g.state {
-		.character_select {
+		.character_select, .stage_select {
 			g.render_character_select(renderer)
+		}
+		.power_up_shop {
+			g.render_power_up_shop(renderer)
 		}
 		.playing, .level_up, .chest_opened, .paused, .game_over, .victory {
 			g.render_world(renderer)
@@ -127,6 +130,8 @@ pub fn (g &Game) render(renderer &sdl.Renderer) {
 				g.render_pause_grimoire(renderer)
 			} else if g.state == .game_over {
 				g.render_game_over_banner(renderer)
+			} else if g.state == .victory {
+				g.render_victory_banner(renderer)
 			}
 		}
 	}
@@ -151,7 +156,7 @@ pub fn (g &Game) render_world(renderer &sdl.Renderer) {
 	start_row := cam_y / tile_s
 	end_row := (cam_y + win_height) / tile_s + 1
 
-	// 1. Gothic Cobblestone Ground with Moss Variations
+	// 1. Stage Ground Rendering
 	for r := start_row; r <= end_row; r++ {
 		for c := start_col; c <= end_col; c++ {
 			sx := c * tile_s - cam_x
@@ -165,26 +170,52 @@ pub fn (g &Game) render_world(renderer &sdl.Renderer) {
 				1 // Normal
 			}
 
-			if g.sprite_texture != unsafe { nil } {
-				src_x := match tile_type {
-					2 { 576 }
-					3 { 640 }
-					else { 512 }
-				}
-				src := sdl.Rect{x: src_x, y: 384, w: 64, h: 64}
-				dst := sdl.Rect{x: sx, y: sy, w: tile_s, h: tile_s}
-				sdl.render_copy(renderer, g.sprite_texture, &src, &dst)
-			} else {
+			if g.stage == .inlaid_library {
 				is_dark := (r + c) % 2 == 0
 				if is_dark {
-					sdl.set_render_draw_color(renderer, 20, 24, 34, 255)
+					sdl.set_render_draw_color(renderer, 45, 48, 62, 255)
 				} else {
-					sdl.set_render_draw_color(renderer, 16, 19, 28, 255)
+					sdl.set_render_draw_color(renderer, 35, 38, 52, 255)
 				}
 				tile_r := sdl.Rect{x: sx, y: sy, w: tile_s, h: tile_s}
 				sdl.render_fill_rect(renderer, &tile_r)
-				sdl.set_render_draw_color(renderer, 28, 33, 46, 255)
+				sdl.set_render_draw_color(renderer, 70, 75, 95, 255)
 				sdl.render_draw_rect(renderer, &tile_r)
+			} else if g.stage == .castle_grounds {
+				is_dark := (r + c) % 2 == 0
+				if is_dark {
+					sdl.set_render_draw_color(renderer, 28, 18, 22, 255)
+				} else {
+					sdl.set_render_draw_color(renderer, 20, 12, 16, 255)
+				}
+				tile_r := sdl.Rect{x: sx, y: sy, w: tile_s, h: tile_s}
+				sdl.render_fill_rect(renderer, &tile_r)
+				if (r * 7 + c * 5) % 11 == 0 {
+					sdl.set_render_draw_color(renderer, 255, 60, 20, 255)
+					sdl.render_draw_line(renderer, sx, sy + 32, sx + 64, sy + 32)
+				}
+			} else {
+				if g.sprite_texture != unsafe { nil } {
+					src_x := match tile_type {
+						2 { 576 }
+						3 { 640 }
+						else { 512 }
+					}
+					src := sdl.Rect{x: src_x, y: 384, w: 64, h: 64}
+					dst := sdl.Rect{x: sx, y: sy, w: tile_s, h: tile_s}
+					sdl.render_copy(renderer, g.sprite_texture, &src, &dst)
+				} else {
+					is_dark := (r + c) % 2 == 0
+					if is_dark {
+						sdl.set_render_draw_color(renderer, 20, 24, 34, 255)
+					} else {
+						sdl.set_render_draw_color(renderer, 16, 19, 28, 255)
+					}
+					tile_r := sdl.Rect{x: sx, y: sy, w: tile_s, h: tile_s}
+					sdl.render_fill_rect(renderer, &tile_r)
+					sdl.set_render_draw_color(renderer, 28, 33, 46, 255)
+					sdl.render_draw_rect(renderer, &tile_r)
+				}
 			}
 
 			if (r * 13 + c * 7) % 19 == 0 {
@@ -205,6 +236,23 @@ pub fn (g &Game) render_world(renderer &sdl.Renderer) {
 		sdl.set_render_draw_color(renderer, 120, 15, 20, alpha)
 		b_rect := sdl.Rect{x: bx - int(bs.rad), y: by - int(bs.rad / 2.0), w: int(bs.rad * 2.0), h: int(bs.rad)}
 		sdl.render_fill_rect(renderer, &b_rect)
+	}
+
+	// 2b. Ground Hazard Warning Zones
+	for hz in g.hazard_zones {
+		hx := int(hz.x) - cam_x
+		hy := int(hz.y) - cam_y
+		if hx < -100 || hx > win_width + 100 || hy < -100 || hy > win_height + 100 {
+			continue
+		}
+		pulse := math.abs(math.sin(g.game_time * 12.0))
+		rad := int(hz.radius * (0.85 + pulse * 0.15))
+		alpha := u8(if hz.fired { 220 } else { 120 + int(pulse * 100.0) })
+		sdl.set_render_draw_color(renderer, 255, 40, 40, alpha)
+		h_rect := sdl.Rect{x: hx - rad, y: hy - rad, w: rad * 2, h: rad * 2}
+		sdl.render_fill_rect(renderer, &h_rect)
+		sdl.set_render_draw_color(renderer, 255, 220, 60, 255)
+		sdl.render_draw_rect(renderer, &h_rect)
 	}
 
 	// 3. Breakable Props (Candelabras & Urns)
@@ -527,6 +575,8 @@ fn draw_player_sprite(renderer &sdl.Renderer, x int, y int, p Player, tex &sdl.T
 			.imelda { 128 }
 			.pasqualina { 256 }
 			.gennaro { 384 }
+			.mortaccio { 0 }
+			.eleanor { 128 }
 		}
 		frame_idx := if p.moving && int(p.walk_frame * 4.0) % 2 == 1 { 64 } else { 0 }
 		src := sdl.Rect{x: base_x + frame_idx, y: 0, w: 64, h: 64}
@@ -559,6 +609,8 @@ fn draw_player_sprite(renderer &sdl.Renderer, x int, y int, p Player, tex &sdl.T
 		.imelda { Color{r: 150, g: 50, b: 180}, Color{r: 220, g: 190, b: 80}, Color{r: 230, g: 210, b: 140} }
 		.pasqualina { Color{r: 40, g: 140, b: 90}, Color{r: 180, g: 120, b: 40}, Color{r: 200, g: 70, b: 40} }
 		.gennaro { Color{r: 140, g: 40, b: 40}, Color{r: 40, g: 40, b: 50}, Color{r: 30, g: 30, b: 35} }
+		.mortaccio { Color{r: 210, g: 210, b: 210}, Color{r: 80, g: 80, b: 90}, Color{r: 255, g: 255, b: 255} }
+		.eleanor { Color{r: 160, g: 60, b: 220}, Color{r: 60, g: 200, b: 255}, Color{r: 250, g: 210, b: 255} }
 	}
 
 	walk_offset := if p.moving { int(math.sin(p.walk_frame) * 3.0) } else { 0 }
@@ -838,6 +890,28 @@ fn draw_projectile(renderer &sdl.Renderer, x int, y int, pr Projectile, ticks u3
 				deg := pr.angle * (180.0 / math.pi)
 				sdl.render_copy_ex(renderer, tex, &src, &dst, deg, unsafe { nil }, sdl.RendererFlip.none)
 			}
+			.thunder_loop {
+				src := sdl.Rect{x: 616, y: 256, w: 48, h: 80}
+				dst := sdl.Rect{x: x - 32, y: y - 70, w: 64, h: 96}
+				sdl.render_copy(renderer, tex, &src, &dst)
+			}
+			.hellfire {
+				src := sdl.Rect{x: 664, y: 256, w: 40, h: 40}
+				dst := sdl.Rect{x: x - 30, y: y - 30, w: 60, h: 60}
+				sdl.render_copy(renderer, tex, &src, &dst)
+			}
+			.supernova {
+				src := sdl.Rect{x: 704, y: 256, w: 64, h: 64}
+				rad := int(pr.radius)
+				dst := sdl.Rect{x: x - rad, y: y - rad, w: rad * 2, h: rad * 2}
+				sdl.render_copy(renderer, tex, &src, &dst)
+			}
+			.gamma_ray {
+				src := sdl.Rect{x: 768, y: 256, w: 64, h: 64}
+				dst := sdl.Rect{x: x - 48, y: y - 48, w: 96, h: 96}
+				deg := pr.angle * (180.0 / math.pi)
+				sdl.render_copy_ex(renderer, tex, &src, &dst, deg, unsafe { nil }, sdl.RendererFlip.none)
+			}
 		}
 		return
 	}
@@ -934,6 +1008,34 @@ fn draw_projectile(renderer &sdl.Renderer, x int, y int, pr Projectile, ticks u3
 			sdl.set_render_draw_color(renderer, 255, 255, 255, 255)
 			sdl.render_draw_line(renderer, x - int(vx) / 2, y - int(vy) / 2, x + int(vx) / 2, y + int(vy) / 2)
 		}
+		.thunder_loop {
+			sdl.set_render_draw_color(renderer, 255, 220, 60, 255)
+			sdl.render_draw_line(renderer, x, y - 90, x - 15, y - 40)
+			sdl.render_draw_line(renderer, x - 15, y - 40, x + 12, y - 15)
+			sdl.render_draw_line(renderer, x + 12, y - 15, x, y)
+		}
+		.hellfire {
+			sdl.set_render_draw_color(renderer, 255, 50, 20, 255)
+			sdl.render_fill_rect(renderer, &sdl.Rect{x: x - 14, y: y - 14, w: 28, h: 28})
+			sdl.set_render_draw_color(renderer, 255, 230, 80, 255)
+			sdl.render_fill_rect(renderer, &sdl.Rect{x: x - 7, y: y - 7, w: 14, h: 14})
+		}
+		.supernova {
+			rad := int(pr.radius)
+			sdl.set_render_draw_blend_mode(renderer, .blend)
+			sdl.set_render_draw_color(renderer, 255, 180, 40, 180)
+			sdl.render_fill_rect(renderer, &sdl.Rect{x: x - rad, y: y - rad, w: rad * 2, h: rad * 2})
+			sdl.set_render_draw_color(renderer, 255, 255, 255, 240)
+			sdl.render_fill_rect(renderer, &sdl.Rect{x: x - rad / 2, y: y - rad / 2, w: rad, h: rad})
+		}
+		.gamma_ray {
+			vx := math.cos(pr.angle) * 200.0
+			vy := math.sin(pr.angle) * 200.0
+			sdl.set_render_draw_color(renderer, 100, 255, 180, 255)
+			sdl.render_draw_line(renderer, x - int(vx), y - int(vy), x + int(vx), y + int(vy))
+			sdl.set_render_draw_color(renderer, 255, 255, 255, 255)
+			sdl.render_draw_line(renderer, x - int(vx) / 2, y - int(vy) / 2, x + int(vx) / 2, y + int(vy) / 2)
+		}
 	}
 }
 
@@ -1002,6 +1104,10 @@ pub fn (g &Game) render_hud(renderer &sdl.Renderer) {
 				.death_spiral { 13 }
 				.unholy_vespers { 14 }
 				.soul_eater { 15 }
+				.thunder_loop { 6 }
+				.hellfire { 7 }
+				.supernova { 8 }
+				.gamma_ray { 9 }
 			}
 			src := sdl.Rect{x: w_idx * 32, y: 512, w: 32, h: 32}
 			sdl.render_copy(renderer, g.sprite_texture, &src, &w_box)
@@ -1013,10 +1119,10 @@ pub fn (g &Game) render_hud(renderer &sdl.Renderer) {
 				.axe, .death_spiral { 'A' }
 				.holy_bible, .unholy_vespers { 'B' }
 				.garlic, .soul_eater { 'G' }
-				.lightning_ring { 'L' }
-				.fire_wand { 'F' }
-				.cataclysm_nuke { 'N' }
-				.prismatic_laser { 'P' }
+				.lightning_ring, .thunder_loop { 'L' }
+				.fire_wand, .hellfire { 'F' }
+				.cataclysm_nuke, .supernova { 'N' }
+				.prismatic_laser, .gamma_ray { 'P' }
 			}
 			txt_col := if w.is_evolved { Color{r: 255, g: 80, b: 80} } else { Color{r: 255, g: 220, b: 80} }
 			draw_text(renderer, icon_x + 8, 34, let, 2, txt_col)
@@ -1041,6 +1147,9 @@ pub fn (g &Game) render_hud(renderer &sdl.Renderer) {
 				.wings { 3 }
 				.crown { 4 }
 				.duplicator { 5 }
+				.clover { 0 }
+				.hollow_heart { 1 }
+				.pumarola { 2 }
 			}
 			src := sdl.Rect{x: p_idx * 32, y: 544, w: 32, h: 32}
 			sdl.render_copy(renderer, g.sprite_texture, &src, &p_box)
@@ -1052,6 +1161,9 @@ pub fn (g &Game) render_hud(renderer &sdl.Renderer) {
 				.wings { 'W' }
 				.crown { 'C' }
 				.duplicator { 'D' }
+				.clover { 'V' }
+				.hollow_heart { 'H' }
+				.pumarola { 'P' }
 			}
 			draw_text(renderer, p_icon_x + 6, 71, let, 1, Color{r: 120, g: 255, b: 150})
 		}
@@ -1179,6 +1291,10 @@ pub fn (g &Game) render_level_up_modal(renderer &sdl.Renderer) {
 					.death_spiral { 13 }
 					.unholy_vespers { 14 }
 					.soul_eater { 15 }
+					.thunder_loop { 6 }
+					.hellfire { 7 }
+					.supernova { 8 }
+					.gamma_ray { 9 }
 				}
 				src := sdl.Rect{x: w_idx * 32, y: 512, w: 32, h: 32}
 				dst := sdl.Rect{x: card_x + 14, y: card_y + 14, w: 36, h: 36}
@@ -1191,6 +1307,9 @@ pub fn (g &Game) render_level_up_modal(renderer &sdl.Renderer) {
 					.wings { 3 }
 					.crown { 4 }
 					.duplicator { 5 }
+					.clover { 0 }
+					.hollow_heart { 1 }
+					.pumarola { 2 }
 				}
 				src := sdl.Rect{x: p_idx * 32, y: 544, w: 32, h: 32}
 				dst := sdl.Rect{x: card_x + 14, y: card_y + 14, w: 36, h: 36}
@@ -1205,6 +1324,9 @@ pub fn (g &Game) render_level_up_modal(renderer &sdl.Renderer) {
 		draw_text(renderer, card_x + card_w - 140, card_y + 14, tag_txt, 1, tag_col)
 		draw_text(renderer, card_x + 60, card_y + 44, card.desc, 1, Color{r: 190, g: 205, b: 235})
 	}
+
+	p1 := if g.players.len > 0 { g.players[0] } else { Player{} }
+	draw_text_centered(renderer, win_width / 2, modal_y + modal_h - 32, '[R] REROLL (${p1.rerolls})    [S] SKIP (${p1.skips})    [B] BANISH (${p1.banishes})', 1, Color{r: 255, g: 215, b: 60})
 }
 
 // Chest Opened Modal
@@ -1268,17 +1390,21 @@ pub fn (g &Game) render_pause_grimoire(renderer &sdl.Renderer) {
 
 	draw_text(renderer, g_x + 20, card_y + 20, 'WEAPON EVOLUTION RECIPES', 2, Color{r: 255, g: 140, b: 60})
 	recipes := [
-		['WHIP (LV8) + SPINACH', '-> BLOODY TEAR (Lifesteal)'],
-		['MAGIC WAND (LV8) + TOME', '-> HOLY WAND (No Cooldown)'],
-		['KNIFE (LV8) + DUPLICATOR', '-> THOUSAND EDGE (Stream)'],
-		['AXE (LV8) + WINGS', '-> DEATH SPIRAL (Scythes)'],
-		['KING BIBLE (LV8) + CROWN', '-> UNHOLY VESPERS (Never fades)'],
-		['GARLIC (LV8) + ARMOR', '-> SOUL EATER (Dark Aura)'],
+		['WHIP + SPINACH', '-> BLOODY TEAR (Lifesteal)'],
+		['MAGIC WAND + TOME', '-> HOLY WAND (Zero Cooldown)'],
+		['KNIFE + DUPLICATOR', '-> THOUSAND EDGE (Barrage)'],
+		['AXE + WINGS', '-> DEATH SPIRAL (Scythes)'],
+		['KING BIBLE + CROWN', '-> UNHOLY VESPERS (Permanent)'],
+		['GARLIC + ARMOR', '-> SOUL EATER (Life Steal Aura)'],
+		['LIGHTNING + DUPLICATOR', '-> THUNDER LOOP (Chain)'],
+		['FIRE WAND + SPINACH', '-> HELLFIRE (Piercing Meteors)'],
+		['NUKE + HOLLOW HEART', '-> SUPERNOVA (Cosmic Implosion)'],
+		['LASER + CLOVER', '-> GAMMA RAY (360 Orbital Beam)'],
 	]
 	for r_i, rec in recipes {
-		ry := card_y + 60 + r_i * 65
+		ry := card_y + 55 + r_i * 45
 		draw_text(renderer, g_x + 20, ry, rec[0], 1, Color{r: 255, g: 220, b: 80})
-		draw_text(renderer, g_x + 20, ry + 18, rec[1], 1, Color{r: 120, g: 255, b: 150})
+		draw_text(renderer, g_x + 200, ry, rec[1], 1, Color{r: 120, g: 255, b: 150})
 	}
 
 	draw_text_centered(renderer, win_width / 2, win_height - 60, 'PRESS [P] OR [ESC] TO RESUME SURVIVING', 2, Color{r: 255, g: 255, b: 255})
@@ -1333,6 +1459,11 @@ pub fn (g &Game) render_character_select(renderer &sdl.Renderer) {
 	}
 
 	coop_str := if g.is_coop { 'MODE: 2-PLAYER CO-OP [C]' } else { 'MODE: 1-PLAYER SOLO [C]' }
+	stage_name := match g.stage {
+		.mad_forest { 'MAD FOREST' }
+		.inlaid_library { 'INLAID LIBRARY' }
+		.castle_grounds { 'CASTLE GROUNDS' }
+	}
 	diff_str := match g.difficulty {
 		.normal { 'DIFFICULTY: NORMAL [D]' }
 		.hard { 'DIFFICULTY: HARD (CHALLENGE) [D]' }
@@ -1343,10 +1474,11 @@ pub fn (g &Game) render_character_select(renderer &sdl.Renderer) {
 		.hard { Color{r: 255, g: 180, b: 60} }
 		.inferno { Color{r: 255, g: 50, b: 50} }
 	}
-	draw_text_centered(renderer, win_width / 2, 555, coop_str, 2, Color{r: 255, g: 220, b: 80})
-	draw_text_centered(renderer, win_width / 2, 595, diff_str, 2, diff_col)
-	draw_text_centered(renderer, win_width / 2, 635, 'PRESS [1-4] TO SELECT HERO & START SURVIVING', 2, Color{r: 255, g: 255, b: 255})
-	draw_text_centered(renderer, win_width / 2, 675, 'WASD/ARROWS: MOVE  [SPACE] ULTIMATE  [H] SPEED  [D] DIFF  [F11] Fullscreen', 1, Color{r: 180, g: 195, b: 230})
+	draw_text_centered(renderer, win_width / 2, 545, 'STAGE: ${stage_name} [M]  |  $ ${g.save_data.total_gold}  [U] POWER-UP SHOP', 2, Color{r: 255, g: 215, b: 60})
+	draw_text_centered(renderer, win_width / 2, 580, coop_str, 2, Color{r: 255, g: 220, b: 80})
+	draw_text_centered(renderer, win_width / 2, 615, diff_str, 2, diff_col)
+	draw_text_centered(renderer, win_width / 2, 650, 'PRESS [1-4] TO SELECT HERO & START SURVIVING', 2, Color{r: 255, g: 255, b: 255})
+	draw_text_centered(renderer, win_width / 2, 685, 'WASD: MOVE  [SHIFT] DASH  [SPACE] ULT  [H] SPEED  [U] SHOP  [M] STAGE', 1, Color{r: 180, g: 195, b: 230})
 }
 
 // Game Over Banner
@@ -1364,4 +1496,68 @@ pub fn (g &Game) render_game_over_banner(renderer &sdl.Renderer) {
 	draw_text_centered(renderer, win_width / 2, win_height / 2 - 45, 'YOU DIED // SURVIVED: ${time_str}', 3, Color{r: 255, g: 215, b: 70})
 	draw_text_centered(renderer, win_width / 2, win_height / 2 + 5, 'TOTAL KILLS: ${g.total_kills}', 2, Color{r: 255, g: 255, b: 255})
 	draw_text_centered(renderer, win_width / 2, win_height / 2 + 35, 'PRESS [R] OR [ENTER] TO TRY AGAIN', 2, Color{r: 100, g: 230, b: 255})
+}
+
+// Victory Banner
+pub fn (g &Game) render_victory_banner(renderer &sdl.Renderer) {
+	banner := sdl.Rect{x: 0, y: win_height / 2 - 110, w: win_width, h: 220}
+	sdl.set_render_draw_color(renderer, 20, 40, 25, 245)
+	sdl.render_fill_rect(renderer, &banner)
+	sdl.set_render_draw_color(renderer, 60, 230, 120, 255)
+	sdl.render_draw_rect(renderer, &banner)
+
+	draw_text_centered(renderer, win_width / 2, win_height / 2 - 80, 'STAGE CLEARED // VICTORY!', 4, Color{r: 255, g: 220, b: 60})
+
+	p1 := if g.players.len > 0 { g.players[0] } else { Player{} }
+	rank_str := if g.total_kills > 2000 { 'RANK S (LEGENDARY SURVIVOR)' } else if g.total_kills > 1000 { 'RANK A (MASTER VAMPIRE HUNTER)' } else { 'RANK B (SURVIVOR)' }
+
+	draw_text_centered(renderer, win_width / 2, win_height / 2 - 25, rank_str, 2, Color{r: 100, g: 255, b: 160})
+	draw_text_centered(renderer, win_width / 2, win_height / 2 + 10, 'TOTAL KILLS: ${g.total_kills}  GOLD EARNED: ${p1.gold}', 2, Color{r: 255, g: 255, b: 255})
+	draw_text_centered(renderer, win_width / 2, win_height / 2 + 55, 'PRESS [R] OR [ENTER] TO RETURN TO HERO SELECT', 2, Color{r: 100, g: 230, b: 255})
+}
+
+// Power-Up Metaprogression Shop Screen
+pub fn (g &Game) render_power_up_shop(renderer &sdl.Renderer) {
+	sdl.set_render_draw_color(renderer, 10, 14, 24, 255)
+	sdl.render_clear(renderer)
+
+	draw_text_centered(renderer, win_width / 2, 35, 'POWER-UP SHOP // METAPROGRESSION', 3, Color{r: 255, g: 220, b: 60})
+	draw_text_centered(renderer, win_width / 2, 75, 'ACCOUNT GOLD: $ ${g.save_data.total_gold}', 2, Color{r: 100, g: 240, b: 255})
+
+	shop_items := [
+		['might', 'MIGHT (+5% Damage)', '${g.save_data.might_lvl}'],
+		['health', 'HEALTH (+10 Max HP)', '${g.save_data.health_lvl}'],
+		['speed', 'SPEED (+5% Move Speed)', '${g.save_data.speed_lvl}'],
+		['greed', 'GREED (+10% Gold Earned)', '${g.save_data.greed_lvl}'],
+		['growth', 'GROWTH (+10% EXP Gain)', '${g.save_data.growth_lvl}'],
+		['rerolls', 'REROLLS (+1 Starting Reroll)', '${g.save_data.rerolls_lvl}'],
+		['banish', 'BANISH (+1 Starting Banish)', '${g.save_data.banish_lvl}'],
+	]
+
+	for i, item in shop_items {
+		card_y := 115 + i * 78
+		card_w := 700
+		card_h := 62
+		card_x := win_width / 2 - card_w / 2
+
+		lvl := item[2].int()
+		cost := (lvl + 1) * 250
+		cost_str := if lvl >= 5 { 'MAXED' } else { '$ ${cost}' }
+		can_buy := lvl < 5 && g.save_data.total_gold >= cost
+
+		bg_col := Color{r: 24, g: 30, b: 48}
+		border_col := if can_buy { Color{r: 255, g: 220, b: 80} } else { Color{r: 60, g: 75, b: 110} }
+
+		sdl.set_render_draw_color(renderer, bg_col.r, bg_col.g, bg_col.b, 255)
+		c_rect := sdl.Rect{x: card_x, y: card_y, w: card_w, h: card_h}
+		sdl.render_fill_rect(renderer, &c_rect)
+		sdl.set_render_draw_color(renderer, border_col.r, border_col.g, border_col.b, 255)
+		sdl.render_draw_rect(renderer, &c_rect)
+
+		draw_text(renderer, card_x + 20, card_y + 18, '[${i + 1}] ${item[1]}', 2, Color{r: 255, g: 255, b: 255})
+		draw_text(renderer, card_x + 380, card_y + 18, 'LVL ${lvl}/5', 2, Color{r: 120, g: 255, b: 150})
+		draw_text(renderer, card_x + 550, card_y + 18, cost_str, 2, if can_buy { Color{r: 255, g: 215, b: 60} } else { Color{r: 180, g: 180, b: 180} })
+	}
+
+	draw_text_centered(renderer, win_width / 2, win_height - 45, 'PRESS [1-7] TO BUY POWER-UP  |  PRESS [ESC] OR [U] TO RETURN', 2, Color{r: 255, g: 255, b: 255})
 }

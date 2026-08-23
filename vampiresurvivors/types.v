@@ -9,12 +9,20 @@ pub const world_height = 3200.0
 
 pub enum GameState {
 	character_select
+	power_up_shop
+	stage_select
 	playing
 	level_up
 	chest_opened
 	paused
 	game_over
 	victory
+}
+
+pub enum StageType {
+	mad_forest      // Classic dark forest
+	inlaid_library   // Marble library corridor
+	castle_grounds   // Volcanic obsidian castle
 }
 
 pub enum DifficultyLevel {
@@ -28,6 +36,8 @@ pub enum CharacterClass {
 	imelda     // Magic Wand caster (+10% exp gain, starts with Magic Wand, Ultimate: Astral Nova)
 	pasqualina // Runetracer (+10% projectile speed, starts with King Bible, Ultimate: Runic Judgement)
 	gennaro    // Knife master (+1 extra projectile to all weapons, starts with Knife, Ultimate: Blade Hurricane)
+	mortaccio  // Bone master (+1 projectile per 20 levels, starts with Axe, Ultimate: Bone Avalanche)
+	eleanor    // Arcane sorceress (-15% cooldowns, starts with Prismatic Laser, Ultimate: Arcane Cataclysm)
 }
 
 pub enum WeaponType {
@@ -48,6 +58,10 @@ pub enum WeaponType {
 	death_spiral
 	unholy_vespers
 	soul_eater
+	thunder_loop
+	hellfire
+	supernova
+	gamma_ray
 }
 
 pub enum PassiveType {
@@ -57,6 +71,9 @@ pub enum PassiveType {
 	wings      // +15% Move Speed per level
 	crown      // +15% EXP Gain per level
 	duplicator // +2 Extra Projectiles per level
+	clover     // +10% Crit Chance per level
+	hollow_heart // +20 Max HP per level
+	pumarola   // +1.0 HP Regen/sec per level
 }
 
 pub enum EnemyType {
@@ -191,6 +208,20 @@ pub mut:
 	radius f64
 }
 
+pub struct HazardZone {
+pub mut:
+	x        f64
+	y        f64
+	radius   f64
+	timer    f64
+	max_t    f64
+	damage   f64
+	fired    bool
+	is_line  bool
+	target_x f64
+	target_y f64
+}
+
 pub struct Enemy {
 pub mut:
 	kind        EnemyType
@@ -198,6 +229,8 @@ pub mut:
 	y           f64
 	vx          f64
 	vy          f64
+	kb_vx       f64
+	kb_vy       f64
 	hp          f64
 	max_hp      f64
 	speed       f64
@@ -245,6 +278,13 @@ pub mut:
 	size  f64
 }
 
+pub struct DashGhost {
+pub mut:
+	x    f64
+	y    f64
+	life f64
+}
+
 pub struct Player {
 pub mut:
 	id             int
@@ -267,6 +307,13 @@ pub mut:
 	kills          int
 	gold           int
 	invuln_time    f64
+	dash_cooldown  f64
+	dash_timer     f64
+	is_dashing     bool
+	rerolls        int = 2
+	skips          int = 2
+	banishes       int = 2
+	banished_items []string
 	ultimate_meter f64 = 100.0
 	ultimate_max   f64 = 100.0
 	weapons        []Weapon

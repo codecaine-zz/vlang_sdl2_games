@@ -61,6 +61,7 @@ fn main() {
 		game.dmg_nums << DamageNum{x: p_x - 70.0, y: p_y + 20.0, val: 45, life: 0.8, is_crit: false}
 
 		game.render(s_renderer)
+		os.mkdir_all('screenshots') or {}
 		sdl.save_bmp(surface, 'screenshots/vampiresurvivors.bmp'.str)
 		sdl.destroy_renderer(s_renderer)
 		sdl.free_surface(surface)
@@ -148,10 +149,38 @@ fn main() {
 							game.start_game(.pasqualina, .gennaro, game.is_coop)
 						} else if sym == int(sdl.KeyCode._4) {
 							game.start_game(.gennaro, .pasqualina, game.is_coop)
+						} else if sym == int(sdl.KeyCode._5) {
+							game.start_game(.mortaccio, .eleanor, game.is_coop)
+						} else if sym == int(sdl.KeyCode._6) {
+							game.start_game(.eleanor, .mortaccio, game.is_coop)
 						} else if sym == int(sdl.KeyCode.c) {
 							game.is_coop = !game.is_coop
 						} else if sym == int(sdl.KeyCode.d) || sym == int(sdl.KeyCode.k) {
 							game.cycle_difficulty()
+						} else if sym == int(sdl.KeyCode.m) {
+							game.cycle_stage()
+						} else if sym == int(sdl.KeyCode.u) {
+							game.state = .power_up_shop
+						}
+					}
+					// Power-Up Metaprogression Shop Screen
+					else if game.state == .power_up_shop {
+						if sym == int(sdl.KeyCode._1) {
+							game.buy_powerup('might')
+						} else if sym == int(sdl.KeyCode._2) {
+							game.buy_powerup('health')
+						} else if sym == int(sdl.KeyCode._3) {
+							game.buy_powerup('speed')
+						} else if sym == int(sdl.KeyCode._4) {
+							game.buy_powerup('greed')
+						} else if sym == int(sdl.KeyCode._5) {
+							game.buy_powerup('growth')
+						} else if sym == int(sdl.KeyCode._6) {
+							game.buy_powerup('rerolls')
+						} else if sym == int(sdl.KeyCode._7) {
+							game.buy_powerup('banish')
+						} else if sym == int(sdl.KeyCode.u) || sym == int(sdl.KeyCode.escape) {
+							game.state = .character_select
 						}
 					}
 					// Level Up Upgrade Screen
@@ -162,10 +191,20 @@ fn main() {
 							game.select_upgrade(1)
 						} else if sym == int(sdl.KeyCode._3) {
 							game.select_upgrade(2)
+						} else if sym == int(sdl.KeyCode.r) {
+							game.reroll_upgrades(0)
+						} else if sym == int(sdl.KeyCode.s) {
+							game.skip_upgrade(0)
+						} else if sym == int(sdl.KeyCode.b) {
+							game.banish_upgrade(0, game.selected_card)
 						} else if sym == int(sdl.KeyCode.up) || sym == int(sdl.KeyCode.w) {
-							game.selected_card = (game.selected_card - 1 + game.upgrade_cards.len) % game.upgrade_cards.len
-						} else if sym == int(sdl.KeyCode.down) || sym == int(sdl.KeyCode.s) {
-							game.selected_card = (game.selected_card + 1) % game.upgrade_cards.len
+							if game.upgrade_cards.len > 0 {
+								game.selected_card = (game.selected_card - 1 + game.upgrade_cards.len) % game.upgrade_cards.len
+							}
+						} else if sym == int(sdl.KeyCode.down) {
+							if game.upgrade_cards.len > 0 {
+								game.selected_card = (game.selected_card + 1) % game.upgrade_cards.len
+							}
 						} else if sym == int(sdl.KeyCode.space) || sym == int(sdl.KeyCode.@return) {
 							game.select_upgrade(game.selected_card)
 						}
@@ -176,22 +215,18 @@ fn main() {
 							game.state = .playing
 						}
 					}
-					// Game Over Screen
-					else if game.state == .game_over {
+					// Game Over / Victory Screen
+					else if game.state == .game_over || game.state == .victory {
 						if sym == int(sdl.KeyCode.r) || sym == int(sdl.KeyCode.@return) {
 							game.state = .character_select
 						}
 					}
-					// Playing State Ultimate Ability
+					// Playing State Abilities
 					else if game.state == .playing {
-						if sym == int(sdl.KeyCode.space) {
+						if sym == int(sdl.KeyCode.lshift) || sym == int(sdl.KeyCode.rshift) {
+							game.perform_dash(0)
+						} else if sym == int(sdl.KeyCode.space) {
 							game.activate_ultimate(0)
-						} else if sym == int(sdl.KeyCode.rshift) || sym == int(sdl.KeyCode.@return) {
-							if game.is_coop {
-								game.activate_ultimate(1)
-							} else {
-								game.activate_ultimate(0)
-							}
 						}
 					}
 					// In-Game Directional Keys Pressed

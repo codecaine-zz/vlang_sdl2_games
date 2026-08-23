@@ -2658,20 +2658,29 @@ v run vampiresurvivors
 
 ![Vampire Survivors](screenshots/vampiresurvivors.png)
 
-- **Objective**: Survive 30 minutes in a cursed gothic graveyard against tens of thousands of swarming bats, zombies, skeletons, and vampire bosses. Collect blue and red XP gems, level up, synergize weapon evolutions, and survive until Death arrives!
+- **Objective**: Survive 30 minutes in cursed gothic stages against tens of thousands of swarming bats, zombies, skeletons, and vampire bosses. Collect blue and red XP gems, level up, buy permanent account Power-Ups, synergize weapon evolutions, and survive until Death arrives!
 - **Controls**:
   - `WASD` / `Arrow Keys`: Move your hero (weapons fire automatically at nearest enemies).
-  - `1` / `2` / `3` / `4` or `Space`: Select upgrade from level-up treasure chests.
+  - `Shift` / `LShift`: Invulnerable **Shadow Dash** (0.4s iframe burst, 3s cooldown).
+  - `1` - `6`: Select Hero on main menu (Antonio, Imelda, Pasqualina, Gennaro, Mortaccio, Eleanor).
+  - `U`: Open **Power-Up Metaprogression Shop** (spend accumulated Gold between runs).
+  - `M`: Cycle **Stage / Map** (Mad Forest, Inlaid Library, Castle Grounds).
+  - `1` / `2` / `3` or `Space`: Select upgrade card during Level-Up.
+  - `R` / `S` / `B`: **Reroll**, **Skip**, or **Banish** upgrade choices.
   - `C`: Toggle 2-Player Local Co-op mode.
-  - `T`: Cycle gothic synthesizer soundtrack.
-  - `P`: Pause game.
-  - `R`: Restart survival run.
+  - `D`: Toggle Difficulty (Normal, Hard, Inferno).
+  - `P` / `Esc`: Pause game & view Evolution Grimoire & real-time DPS.
+- **Save State Directory Locations**:
+  - **macOS**: `~/Library/Application Support/vampiresurvivors/save.json`
+  - **Linux / Unix**: `~/.config/vampiresurvivors/save.json` (or `$XDG_CONFIG_HOME/vampiresurvivors/save.json`)
+  - **Windows**: `%APPDATA%\vampiresurvivors\save.json`
+  - *No root/sudo permissions needed. Auto-migrates legacy local `./save.json` files automatically.*
 - **Rules & Mechanics**:
   - Autofire combat: Position your hero strategically while weapons attack autonomously.
   - Collect fallen XP gems to fill your level-up bar.
-  - Weapons: Whip, Magic Wand, Holy Water, Garlic Aura, Axe, Cross Boomerang, King Bible, Lightning Ring.
-  - Weapon Evolutions: Max out a weapon (Lv 8) with its complementary passive item (e.g., Whip + Hollow Heart -> Bloody Tear) to forge god-tier evolved weapons!
-- **Pro Tip**: Pick Garlic early for effortless low-tier crowd clearing, then build Holy Water and King Bible for an impenetrable spinning fortress of protection!
+  - Permanent Metaprogression: Account Gold persists automatically across runs. Spend gold in the Power-Up Shop for Might, Health, Speed, Greed, Growth, Rerolls, and Banishes.
+  - 10 Evolved Super Weapons: Max out a base weapon (Lv 8) with its complementary passive item (e.g., Whip + Spinach -> Bloody Tear) to forge god-tier evolved weapons!
+- **Pro Tip**: Pick Garlic early for effortless low-tier crowd clearing, purchase Greed & Might in the Power-Up Shop between runs, and use Shift Dash to break through dense boss traps!
 
 ---
 
