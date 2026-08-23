@@ -86,6 +86,8 @@ LAUNCHER
   local icns="$ICONS_DIR/${game_name}.icns"
   if [[ -f "$icns" ]]; then
     cp "$icns" "$resources_dir/${game_name}.icns"
+  elif [[ -f "$ICONS_DIR/default.icns" ]]; then
+    cp "$ICONS_DIR/default.icns" "$resources_dir/${game_name}.icns"
   fi
 
   # ---- Info.plist -------------------------------------------------------- #

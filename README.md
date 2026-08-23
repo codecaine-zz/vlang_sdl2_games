@@ -57,21 +57,44 @@ v install sdl
 >
 > To make that permanent for future shells, add the same lines to `~/.bashrc`.
 >
-> **Ubuntu/Linux build + desktop launcher flow**
+> **macOS Build & Desktop Apps (`.app`) Flow**
 >
 > ```bash
-> cd /home/parallels/vlang_sdl2_games
+> ./build_mac_desktop_apps.sh
+> ```
+>
+> Compiles every game in parallel, generates native macOS `.app` bundles complete with `Info.plist` manifests and custom `.icns` icons, and deploys them to:
+> - `~/Desktop/VSDL_Games`
+> - `/Applications/VSDL_Games`
+>
+> To remove the macOS desktop apps:
+> ```bash
+> ./remove_mac_desktop_apps.sh
+> ```
+>
+> **Linux Build & Desktop Launchers (`.desktop`) Flow**
+>
+> ```bash
 > ./build_linux_desktop_apps.sh
 > ```
 >
-> This script compiles every game folder in parallel, creates a native binary next to each game, and generates Ubuntu `.desktop` launchers in:
->
+> Compiles every game in parallel, attaches 256×256 PNG icons, and generates Linux `.desktop` application launchers in:
 > - `~/Desktop/VSDL_Games`
-> - `~/.local/share/applications`
+> - `~/.local/share/applications/VSDL_Games`
 >
-> The legacy nested `~/.local/share/applications/VSDL_Games` folder is not used anymore to avoid duplicate app-menu entries.
+> To remove the Linux desktop launchers:
+> ```bash
+> ./remove_linux_desktop_apps.sh
+> ```
 >
-> After that, you can launch games from the Ubuntu app menu or by double-clicking the generated desktop files.
+> **🎨 Icon Generation & Default Icon Support**
+>
+> Game icons for macOS (`.icns`) and Linux (`256×256 PNG`) are generated from game screenshots in `screenshots/`:
+> ```bash
+> ./generate_icons.sh
+> ```
+> Both build scripts will automatically invoke `./generate_icons.sh` if icons have not been generated yet.
+> If a new game is added without a custom screenshot or icon, the system generates and uses a **default fallback icon** (`default.icns` / `default.png`), ensuring new games can always be compiled into desktop applications.
 >
 > **Windows**: Pre-bundled with V SDL or install via MSYS2 / vcpkg
 

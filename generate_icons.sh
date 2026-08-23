@@ -105,10 +105,35 @@ build_png_256() {
 
 mkdir -p "$ICNS_DIR" "$PNG_DIR"
 
-processed=0
-skipped=0
+# Step 1: Ensure default icon (default.icns & default.png) exists
+DEFAULT_SRC="$SCREENSHOTS_DIR/clickarcade.png"
+if [[ ! -f "$DEFAULT_SRC" ]]; then
+  # Fallback to any screenshot if clickarcade.png isn't available
+  DEFAULT_SRC="$(find "$SCREENSHOTS_DIR" -name '*.png' | head -n 1)"
+fi
 
+if [[ -f "$DEFAULT_SRC" ]]; then
+  if [[ ! -f "$ICNS_DIR/default.icns" ]]; then
+    if have iconutil && have sips; then
+      log "icns" "Generating default.icns"
+      build_icns_with_iconutil "$DEFAULT_SRC" "$ICNS_DIR/default.icns"
+    elif have iconutil && have convert; then
+      log "icns" "Generating default.icns"
+      build_icns_with_imagemagick "$DEFAULT_SRC" "$ICNS_DIR/default.icns"
+    fi
+  fi
+
+  if [[ ! -f "$PNG_DIR/default.png" ]]; then
+    log "png " "Generating default.png"
+    build_png_256 "$DEFAULT_SRC" "$PNG_DIR/default.png"
+  fi
+fi
+
+processed=0
+
+# Step 2: Process all game screenshots in screenshots/
 for src_png in "$SCREENSHOTS_DIR"/*.png; do
+  [[ -f "$src_png" ]] || continue
   game="$(basename "$src_png" .png)"
 
   # Skip composite / editor screenshots (e.g. lolo_editor, duke_sector2)
@@ -141,6 +166,31 @@ for src_png in "$SCREENSHOTS_DIR"/*.png; do
   fi
 
   (( processed++ )) || true
+done
+
+# Step 3: Handle games in the workspace that don't have screenshots
+for game_dir in "$ROOT_DIR"/*; do
+  [[ -d "$game_dir" ]] || continue
+  game="$(basename "$game_dir")"
+
+  # Skip non-game directories
+  [[ "$game" == "assets" || "$game" == "screenshots" || "$game" == "icons" || "$game" == ".git" ]] && continue
+  if [[ ! -f "$game_dir/v.mod" ]] && [[ ! -f "$game_dir/main.v" ]] && ! ls "$game_dir"/*.v &>/dev/null 2>&1; then
+    continue
+  fi
+
+  icns_dest="$ICNS_DIR/${game}.icns"
+  png_dest="$PNG_DIR/${game}.png"
+
+  if [[ ! -f "$icns_dest" ]] && [[ -f "$ICNS_DIR/default.icns" ]]; then
+    log "icns" "Using default icon for $game (no screenshot found)"
+    cp "$ICNS_DIR/default.icns" "$icns_dest"
+  fi
+
+  if [[ ! -f "$png_dest" ]] && [[ -f "$PNG_DIR/default.png" ]]; then
+    log "png " "Using default icon for $game (no screenshot found)"
+    cp "$PNG_DIR/default.png" "$png_dest"
+  fi
 done
 
 echo ""

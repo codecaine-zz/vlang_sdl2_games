@@ -57,6 +57,13 @@ build_one() {
   echo "Building $game_name..."
   (cd "$game_dir" && v -o "$game_name" .)
 
+  local icon_path="applications-games"
+  if [[ -f "${ICONS_DIR}/${game_name}.png" ]]; then
+    icon_path="${ICONS_DIR}/${game_name}.png"
+  elif [[ -f "${ICONS_DIR}/default.png" ]]; then
+    icon_path="${ICONS_DIR}/default.png"
+  fi
+
   for target_dir in "$DESKTOP_DIR" "$APP_DIR"; do
     desktop_file="$target_dir/${game_name}.desktop"
     cat > "$desktop_file" <<EOF
@@ -70,7 +77,7 @@ Path=$game_dir
 Terminal=false
 Categories=Game;
 StartupNotify=true
-Icon=${ICONS_DIR}/${game_name}.png
+Icon=${icon_path}
 EOF
     chmod +x "$desktop_file"
     echo "Created $desktop_file"
