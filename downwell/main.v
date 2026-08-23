@@ -1,6 +1,7 @@
 module main
 
 import math
+import os
 import sdl
 
 struct App {
@@ -33,9 +34,9 @@ fn new_app() App {
 			h:            40
 			text:         'RESTART [R]'
 			bg_color:     Color{r: 25, g: 35, b: 55}
-			hover_color:  Color{r: 45, g: 60, b: 90}
+			hover_color:  Color{r: 45, g: 65, b: 105}
 			text_color:   Color{r: 255, g: 255, b: 255}
-			border_color: Color{r: 70, g: 90, b: 140}
+			border_color: Color{r: 80, g: 110, b: 170}
 		}
 		btn_sound:   Button{
 			x:            180
@@ -44,9 +45,9 @@ fn new_app() App {
 			h:            40
 			text:         'SOUND: ON [O]'
 			bg_color:     Color{r: 25, g: 35, b: 55}
-			hover_color:  Color{r: 45, g: 60, b: 90}
+			hover_color:  Color{r: 45, g: 65, b: 105}
 			text_color:   Color{r: 255, g: 255, b: 255}
-			border_color: Color{r: 70, g: 90, b: 140}
+			border_color: Color{r: 80, g: 110, b: 170}
 		}
 	}
 	return app
@@ -55,15 +56,55 @@ fn new_app() App {
 fn (mut b Button) render(renderer &sdl.Renderer, mx int, my int) {
 	is_hover := b.contains(mx, my)
 	bg := if is_hover { b.hover_color } else { b.bg_color }
+	
+	// Drop shadow
+	shadow := sdl.Rect{x: b.x + 2, y: b.y + 2, w: b.w, h: b.h}
+	sdl.set_render_draw_color(renderer, 0, 0, 0, 140)
+	sdl.render_fill_rect(renderer, &shadow)
+
+	// Button base
 	sdl.set_render_draw_color(renderer, bg.r, bg.g, bg.b, bg.a)
 	rect := sdl.Rect{x: b.x, y: b.y, w: b.w, h: b.h}
 	sdl.render_fill_rect(renderer, &rect)
+	
+	// Border
 	sdl.set_render_draw_color(renderer, b.border_color.r, b.border_color.g, b.border_color.b, 255)
 	sdl.render_draw_rect(renderer, &rect)
+	
 	draw_text_centered(renderer, b.x + b.w / 2, b.y + (b.h - 16) / 2, b.text, 1, b.text_color)
 }
 
 fn main() {
+	// Snapshot capture support for automated testing and gallery previews
+	if os.args.contains('--snapshot') || os.args.contains('--snap') {
+		sdl.init(sdl.init_video)
+		surface := sdl.create_rgb_surface(0, 800, 600, 32, 0x00FF0000, 0x0000FF00, 0x000000FF, 0xFF000000)
+		if !isnil(surface) {
+			s_renderer := sdl.create_software_renderer(surface)
+			if !isnil(s_renderer) {
+				mut app := new_app()
+				app.renderer = s_renderer
+				app.game.score = 4280
+				app.game.player.gems = 45
+				app.game.depth = 84.0
+				app.game.player.hp = 3
+				app.game.player.max_hp = 4
+				app.game.player.weapon = .machinegun
+				app.game.player.vy = -180.0
+				app.game.fire_gunboots()
+
+				render_downwell_game(app.renderer, &app.game, app.tex_mgr.sprite_texture)
+
+				os.mkdir_all('screenshots') or {}
+				sdl.save_bmp(surface, 'screenshots/downwell.bmp'.str)
+				sdl.destroy_renderer(s_renderer)
+			}
+			sdl.free_surface(surface)
+		}
+		sdl.quit()
+		return
+	}
+
 	if sdl.init(sdl.init_video | sdl.init_audio) < 0 {
 		eprintln('Failed to init SDL: ${sdl.get_error()}')
 		return
@@ -185,6 +226,8 @@ fn main() {
 		if !app.paused {
 			app.game.update(math.min(dt, 0.05), app.key_left, app.key_right, app.key_jump, app.key_shoot)
 		}
+
+		app.sound_mgr.update_bgm(!app.paused && !app.game.game_over)
 
 		if app.game.last_sound_event != '' {
 			app.sound_mgr.play_sound(app.game.last_sound_event)

@@ -69,6 +69,7 @@ fn (mut sm SoundManager) load_clip(name string, filename string) {
 }
 
 fn (mut sm SoundManager) load_all_clips() {
+	sm.load_clip('bgm', 'downwell_bgm.wav')
 	sm.load_clip('shoot', 'downwell_shoot.wav')
 	sm.load_clip('jump', 'downwell_jump.wav')
 	sm.load_clip('stomp', 'downwell_stomp.wav')
@@ -96,5 +97,15 @@ pub fn (mut sm SoundManager) play_sound(name string) {
 }
 
 pub fn (mut sm SoundManager) update_bgm(active bool) {
-	// Background audio loop hook
+	if !sm.sound_enabled || sm.dev == 0 || !active {
+		return
+	}
+	queued := sdl.get_queued_audio_size(sm.dev)
+	if queued < 16384 {
+		if clip := sm.clips['bgm'] {
+			if clip.len > 0 && !isnil(clip.buf) {
+				sdl.queue_audio(sm.dev, clip.buf, clip.len)
+			}
+		}
+	}
 }
