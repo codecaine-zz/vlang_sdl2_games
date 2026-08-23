@@ -57,14 +57,35 @@ v install sdl
 >
 > To make that permanent for future shells, add the same lines to `~/.bashrc`.
 >
+> **Ubuntu/Linux build + desktop launcher flow**
+>
+> ```bash
+> cd /home/parallels/vlang_sdl2_games
+> ./build_linux_desktop_apps.sh
+> ```
+>
+> This script compiles every game folder in parallel, creates a native binary next to each game, and generates Ubuntu `.desktop` launchers in:
+>
+> - `~/Desktop/VSDL_Games`
+> - `~/.local/share/applications/VSDL_Games`
+>
+> After that, you can launch games from the Ubuntu app menu or by double-clicking the generated desktop files.
+>
 > **Windows**: Pre-bundled with V SDL or install via MSYS2 / vcpkg
 
-To launch any game, simply run:
+To launch any game manually, simply run:
 
 ```bash
 v run <game_folder>
 # Example:
 v run mariobros
+```
+
+For a compiled binary directly from the terminal:
+
+```bash
+cd ./drmario
+./drmario
 ```
 
 ---
