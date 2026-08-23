@@ -20,7 +20,7 @@ TARGET_DIRS = [
     "fire", "flappy", "frogger", "galaga", "game2048", "gnujump",
     "goldminer", "jezzball", "klax", "kungfu", "legendofkage", "lemmings",
     "liarsdice", "lightcycles", "lolo", "lunarlander", "mappy",
-    "marblemadness", "mariobros", "memorymatch", "micromayhem",
+    "marblemadness", "mariobros", "mathmunchers", "memorymatch", "micromayhem",
     "minesweeper", "missilecommand", "pacman", "pacman/platformer",
     "pacman/platformer/munchers", "paneldepon", "peggle", "picross",
     "pinball", "pong", "pool", "puyopuyo", "puzzlefighter", "qbert",

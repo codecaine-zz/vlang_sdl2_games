@@ -197,6 +197,63 @@ def generate_nuclearthrone_assets():
     write_bmp(sprites_dir / 'nuclearthrone_sprites.bmp', w, h, pixels)
     print("Generated Nuclear Throne BGM and audio assets!")
 
+def generate_mathmunchers_assets():
+    dir_path = ROOT / 'mathmunchers' / 'assets'
+    sounds_dir = dir_path / 'sounds'
+    sprites_dir = dir_path / 'sprites'
+
+    # Sound FX for Math Munchers
+    write_wav(sounds_dir / 'mathmunchers_munch.wav', generate_square_wave(580, 0.15, 0.5, sweep=0.5))
+    write_wav(sounds_dir / 'mathmunchers_wrong.wav', generate_square_wave(140, 0.25, 0.6, sweep=-0.4))
+    write_wav(sounds_dir / 'mathmunchers_move.wav', generate_square_wave(400, 0.05, 0.3, sweep=0.2))
+    write_wav(sounds_dir / 'mathmunchers_troggle.wav', generate_square_wave(220, 0.18, 0.4, sweep=-0.3))
+    write_wav(sounds_dir / 'mathmunchers_hit.wav', generate_noise(0.35, 0.65))
+    write_wav(sounds_dir / 'mathmunchers_win.wav', generate_square_wave(784, 0.35, 0.5, sweep=0.2))
+    write_wav(sounds_dir / 'mathmunchers_gameover.wav', generate_square_wave(220, 0.50, 0.5, sweep=-0.5))
+    write_wav(sounds_dir / 'mathmunchers_freeze.wav', generate_square_wave(880, 0.30, 0.4, sweep=-0.3))
+    write_wav(sounds_dir / 'mathmunchers_extralife.wav', generate_square_wave(660, 0.40, 0.5, sweep=0.4))
+
+    # Catchy Math Munchers retro arcade chiptune BGM loop (135 BPM)
+    melody = [
+        (64, 0.5), (66, 0.5), (68, 0.5), (71, 0.5), (73, 0.5), (71, 0.5), (68, 0.5), (64, 0.5),
+        (66, 0.5), (68, 0.5), (71, 0.5), (73, 0.5), (76, 0.5), (73, 0.5), (71, 0.5), (68, 0.5),
+        (63, 0.5), (66, 0.5), (68, 0.5), (71, 0.5), (73, 0.5), (71, 0.5), (68, 0.5), (63, 0.5),
+        (64, 0.5), (68, 0.5), (71, 0.5), (76, 1.0), (73, 0.5), (71, 0.5), (68, 0.5),
+    ]
+    bass = [
+        (40, 1.0), (40, 1.0), (40, 1.0), (40, 1.0),
+        (42, 1.0), (42, 1.0), (42, 1.0), (42, 1.0),
+        (39, 1.0), (39, 1.0), (39, 1.0), (39, 1.0),
+        (40, 1.0), (40, 1.0), (40, 1.0), (40, 1.0),
+    ]
+    mathmunchers_bgm = generate_bgm_track(melody, bass, bpm=135.0)
+    write_wav(sounds_dir / 'mathmunchers_bgm.wav', mathmunchers_bgm)
+
+    # Spritesheet BMP (128x128 24-bit bitmap)
+    w, h = 128, 128
+    pixels = [(12, 18, 30)] * (w * h)
+    # Green Muncher
+    for y in range(4, 28):
+        for x in range(4, 28):
+            pixels[y * w + x] = (40, 220, 80)
+    # Muncher Mouth
+    for y in range(14, 22):
+        for x in range(12, 28):
+            pixels[y * w + x] = (10, 20, 30)
+    # Troggle Reggie (Purple)
+    for y in range(4, 28):
+        for x in range(36, 60):
+            pixels[y * w + x] = (180, 50, 210)
+    # Troggle Smartie (Orange)
+    for y in range(4, 28):
+        for x in range(68, 92):
+            pixels[y * w + x] = (255, 140, 20)
+
+    write_bmp(sprites_dir / 'mathmunchers_sprites.bmp', w, h, pixels)
+    print("Generated Math Munchers BGM, audio assets, and sprite BMP!")
+
 if __name__ == '__main__':
     generate_downwell_assets()
     generate_nuclearthrone_assets()
+    generate_mathmunchers_assets()
+
