@@ -8,6 +8,7 @@ A massive collection of **88+ playable 2D and 3D arcade games, retro classics, p
 
 - **🎨 Modern Sprite Graphics Engine**: Upgraded from procedural vector wireframes to high-fidelity textured sprites, animated sprite sheets, 3D beveled puzzle tiles, and pixel-art matrices.
 - **🔊 Real Game Sound Effects & BGM Engine**: Built-in WAV audio engine loading authentic 16-bit 44.1kHz sound clips (`assets/sounds/*.wav`) alongside real-time arcade background music synthesizers.
+- **💾 Suite-Wide Save States & OS-Compliant Persistence Engine**: Built-in instant quick save state (`F5`) and quick load state (`F9`) with visual toast notifications across all games in the suite. Persists game state, levels, inventory, and high scores safely in standard OS directories (`~/Library/Application Support/<game>` on macOS, `~/.config/<game>` on Linux, `%APPDATA%\<game>` on Windows).
 - **🖼️ Universal Multi-Genre Sprite Pipeline**: Standardized high-resolution PNG sprite sheets in `assets/sprites/` covering all game genres:
   - ⚔️ `fantasy_rpg_sprites.png` (Knight, Mage, Rogue, Dragon, Skeleton, Potions, Swords, Dungeon Brick Walls, Torches)
   - 🍄 `platformer_world_sprites.png` (Jumping Hero, Question Blocks, Warp Pipes, Brick Platforms, Coins, Clouds, Spikes)
@@ -106,12 +107,18 @@ v run <game_folder>
 v run mariobros
 ```
 
-For a compiled binary directly from the terminal:
+### 💾 Suite-Wide Save States & Quick-Load System (`F5` / `F9`)
 
-```bash
-cd ./drmario
-./drmario
-```
+Every game in the suite includes built-in instant **Save State & Load State persistence** powered by an OS-compliant JSON storage engine (`save.v`):
+
+- **Hotkeys**:
+  - `F5`: **Quick Save State** — Instantly freezes and saves game state, player position, score, level, inventory, and settings with an on-screen confirmation toast.
+  - `F9`: **Quick Load State** — Instantly restores saved game state and resumes gameplay.
+- **Persistent High Scores & Progress**: High scores, unlocked items, character stats, and completed stages automatically persist across application restarts.
+- **Cross-Platform Directory Standard**:
+  - **macOS**: `~/Library/Application Support/<game_name>/save.json`
+  - **Linux / Unix**: `~/.config/<game_name>/save.json` (or `$XDG_CONFIG_HOME/<game_name>/save.json`)
+  - **Windows**: `%APPDATA%\<game_name>\save.json`
 
 ---
 
@@ -2914,6 +2921,36 @@ v run worldrunner
   - **Speed Boosters & Health Packs**: Restore life hearts and maximize warp speed.
   - **Segmented Serpent Dragon**: Target the glowing head or blast through individual body segments to destroy the cosmic guardian.
 - **Pro Tip**: Fire dual lasers while in mid-air at the apex of a jump to clear high floating spires and blast dragon segments from above!
+
+---
+
+<a id="92-towerfall-ascension-towerfall"></a>
+
+### 92. TowerFall Ascension (`towerfall/`)
+
+```bash
+v run towerfall
+```
+
+![TowerFall Ascension](screenshots/towerfall.png)
+
+- **Objective**: Engage in fast-paced 2D archery combat as hooded archers! Battle waves of monsters in Quest Mode or challenge AI bots in 1v1 Versus Mode across 4 dynamic arenas with 4 arrow types, dodge dashes, and wall jumps!
+- **Controls**:
+  - `WASD` / `Arrows`: Move archer & aim bow in 8 directions.
+  - `Space` / `K`: Jump / Wall Jump / Wall Slide.
+  - `Shift` / `I`: 8-Way Dodge Dash (Catch incoming arrows mid-dash!).
+  - `J` / `L` / `Enter`: Fire Arrow.
+  - `1`: Launch Quest Mode (Solo / Co-op vs Monster Waves).
+  - `2`: Launch Versus Mode (1v1 Archer Duel vs AI Bot).
+  - `F5`: **Quick Save State** — Save current wave, lives, arrows, score, and position.
+  - `F9`: **Quick Load State** — Load saved state instantly.
+  - `Esc`: Return to Main Menu / Quit.
+- **Rules & Mechanics**:
+  - 3-Arrow Quiver: Quiver holds 3 arrows; retrieve spent arrows stuck in walls or fallen on floors.
+  - Arrow Catching: Execute a Dodge Dash (`Shift`) into an incoming arrow to catch it out of the air!
+  - 4 Arrow Types: Normal Wood, Brambly Thorns (grows vine walls), Bomb Detonator (explodes stone blocks), and Tachyon Laser (pierces walls).
+  - Power-Up Chests: Treasure chests drop extra arrow quivers and special arrow types.
+- **Pro Tip**: Wall slide down vertical ledges and execute a Dodge Dash towards incoming enemy arrows to snap catch them out of mid-air and instantly reload your quiver!
 
 ---
 
