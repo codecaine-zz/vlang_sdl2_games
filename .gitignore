@@ -6,6 +6,7 @@ sdl_games
 *.so
 *.dylib
 *.dll
+*.app
 
 # Ignore compiled game binaries created by local builds
 */
@@ -24,6 +25,8 @@ sdl_games
 */build/
 */dist/
 */*.out
+*.app
+*/*.app
 
 # Ignore the generated desktop binaries named after each game folder
 */airhockey

@@ -4,10 +4,17 @@ set -euo pipefail
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="${1:-$HOME/Desktop/VSDL_Games}"
 APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications/VSDL_Games"
+ICONS_DIR="$ROOT_DIR/icons/png"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
 export PKG_CONFIG_PATH="/home/linuxbrew/.linuxbrew/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 export LD_LIBRARY_PATH="/home/linuxbrew/.linuxbrew/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+# Ensure icons have been generated
+if [[ ! -d "$ICONS_DIR" ]] || [[ -z "$(ls -A "$ICONS_DIR" 2>/dev/null)" ]]; then
+  echo "Icons not found – running generate_icons.sh first..."
+  bash "$ROOT_DIR/generate_icons.sh"
+fi
 
 cleanup_old_desktop_files() {
   for target in "$DESKTOP_DIR" "$APP_DIR"; do
@@ -51,7 +58,7 @@ Path=$game_dir
 Terminal=false
 Categories=Game;
 StartupNotify=true
-Icon=applications-games
+Icon=${ICONS_DIR}/${game_name}.png
 EOF
     chmod +x "$desktop_file"
     echo "Created $desktop_file"
@@ -59,7 +66,7 @@ EOF
 }
 
 export -f build_one
-export DESKTOP_DIR APP_DIR ROOT_DIR PKG_CONFIG_PATH LD_LIBRARY_PATH
+export DESKTOP_DIR APP_DIR ROOT_DIR ICONS_DIR PKG_CONFIG_PATH LD_LIBRARY_PATH
 
 printf '%s\n' "${game_dirs[@]}" | xargs -P "$JOBS" -I{} bash -c 'build_one "$1"' _ {}
 
