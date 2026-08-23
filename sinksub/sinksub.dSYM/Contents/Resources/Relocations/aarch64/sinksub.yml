@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     '/Users/codecaine/vlang_sdl2_games/sinksub/sinksub'
+relocations:     []
+...
