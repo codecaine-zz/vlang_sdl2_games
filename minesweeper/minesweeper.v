@@ -58,10 +58,16 @@ pub mut:
 	best_int       int = 999
 	best_exp       int = 999
 	theme_neon     bool
+	toast_msg      string
+	toast_timer    f64
 }
 
 pub fn new_minesweeper(diff Difficulty) Minesweeper {
 	mut ms := Minesweeper{}
+	saved := load_mine_save()
+	if saved.best_beg > 0 { ms.best_beg = saved.best_beg }
+	if saved.best_int > 0 { ms.best_int = saved.best_int }
+	if saved.best_exp > 0 { ms.best_exp = saved.best_exp }
 	ms.set_difficulty(diff)
 	return ms
 }
@@ -384,6 +390,7 @@ pub fn (mut ms Minesweeper) check_win() bool {
 			}
 			else {}
 		}
+		ms.save_progress()
 		return true
 	}
 	return false
@@ -392,4 +399,72 @@ pub fn (mut ms Minesweeper) check_win() bool {
 pub fn (ms &Minesweeper) get_remaining_mines() int {
 	rem := ms.total_mines - ms.flags_placed
 	return if rem < -99 { -99 } else if rem > 999 { 999 } else { rem }
+}
+
+pub fn (mut ms Minesweeper) save_progress() {
+	mut saved := load_mine_save()
+	saved.best_beg = ms.best_beg
+	saved.best_int = ms.best_int
+	saved.best_exp = ms.best_exp
+	saved.diff_idx = int(ms.difficulty)
+	saved.cols = ms.cols
+	saved.rows = ms.rows
+	saved.total_mines = ms.total_mines
+	saved.timer_ticks = ms.timer_ticks
+	save_mine_data(&saved)
+}
+
+pub fn (mut ms Minesweeper) save_state() {
+	ms.save_progress()
+	mut saved := load_mine_save()
+	saved.save_state_valid = true
+	
+	mut lines := []string{}
+	for r in 0 .. ms.rows {
+		mut row_str := ''
+		for c in 0 .. ms.cols {
+			cell := ms.cells[r][c]
+			mine := if cell.is_mine { 1 } else { 0 }
+			st := int(cell.state)
+			row_str += '${mine}:${cell.neighbor_mines}:${st},'
+		}
+		lines << row_str
+	}
+	saved.grid_lines = lines
+	save_mine_data(&saved)
+
+	ms.toast_msg = 'GAME SAVED (F5)'
+	ms.toast_timer = 2.0
+}
+
+pub fn (mut ms Minesweeper) load_state() {
+	saved := load_mine_save()
+	if !saved.save_state_valid || saved.grid_lines.len < ms.rows {
+		ms.toast_msg = 'NO SAVE FOUND'
+		ms.toast_timer = 2.0
+		return
+	}
+	if saved.best_beg > 0 { ms.best_beg = saved.best_beg }
+	if saved.best_int > 0 { ms.best_int = saved.best_int }
+	if saved.best_exp > 0 { ms.best_exp = saved.best_exp }
+	ms.timer_ticks = saved.timer_ticks
+
+	for r in 0 .. ms.rows {
+		if r < saved.grid_lines.len {
+			line := saved.grid_lines[r]
+			tokens := line.split(',')
+			for c in 0 .. ms.cols {
+				if c < tokens.len && tokens[c] != '' {
+					parts := tokens[c].split(':')
+					if parts.len == 3 {
+						ms.cells[r][c].is_mine = parts[0] == '1'
+						ms.cells[r][c].neighbor_mines = parts[1].int()
+						ms.cells[r][c].state = unsafe { CellState(parts[2].int()) }
+					}
+				}
+			}
+		}
+	}
+	ms.toast_msg = 'GAME LOADED (F9)'
+	ms.toast_timer = 2.0
 }

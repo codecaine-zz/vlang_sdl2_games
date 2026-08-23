@@ -115,6 +115,8 @@ pub mut:
 	// Stats
 	total_distance f64
 	stroke_count   int
+	toast_msg      string
+	toast_timer    f64
 }
 
 pub fn new_etch_game() EtchGame {
@@ -623,4 +625,48 @@ fn hsv_to_rgb(h f64, s f64, v f64) (u8, u8, u8) {
 		else {}
 	}
 	return u8(r * 255.0), u8(g * 255.0), u8(b * 255.0)
+}
+
+pub fn (mut g EtchGame) save_state() {
+	mut saved := load_etch_save()
+	saved.save_state_valid = true
+	mut lines := []string{}
+	for pt in g.points {
+		st := if pt.start { 1 } else { 0 }
+		lines << '${pt.x},${pt.y},${pt.col.r},${pt.col.g},${pt.col.b},${st}'
+	}
+	saved.point_lines = lines
+	save_etch_data(&saved)
+
+	g.toast_msg = 'DRAWING SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g EtchGame) load_state() {
+	saved := load_etch_save()
+	if !saved.save_state_valid || saved.point_lines.len == 0 {
+		g.toast_msg = 'NO SAVED DRAWING'
+		g.toast_timer = 2.0
+		return
+	}
+	g.points.clear()
+	for line in saved.point_lines {
+		tokens := line.split(',')
+		if tokens.len == 6 {
+			x := tokens[0].f64()
+			y := tokens[1].f64()
+			r := u8(tokens[2].int())
+			g_val := u8(tokens[3].int())
+			b := u8(tokens[4].int())
+			st := tokens[5] == '1'
+			g.points << Point{
+				x: x
+				y: y
+				col: Color{r, g_val, b, 255}
+				start: st
+			}
+		}
+	}
+	g.toast_msg = 'DRAWING LOADED (F9)'
+	g.toast_timer = 2.0
 }

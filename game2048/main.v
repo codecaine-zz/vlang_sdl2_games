@@ -43,6 +43,7 @@ fn (mut app App) handle_slide(dir Direction) {
 		} else if app.game.state == .game_over {
 			app.sound_mgr.play_game_over_sound()
 		}
+		app.game.save_progress()
 	}
 }
 
@@ -159,6 +160,10 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.r) {
 						app.game.reset()
 					} else if sym == int(sdl.KeyCode.u) {

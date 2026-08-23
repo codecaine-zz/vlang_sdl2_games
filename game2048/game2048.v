@@ -31,13 +31,23 @@ pub mut:
 	keep_playing bool
 	history      []MoveHistory
 	max_tile     int
+	toast_msg    string
+	toast_timer  f64
 }
 
 pub fn new_game_2048() Game2048 {
 	mut g := Game2048{
 		grid: [][]int{len: 4, init: []int{len: 4, init: 0}}
 	}
-	g.reset()
+	saved := load_2048_save()
+	if saved.best_score > 0 {
+		g.best_score = saved.best_score
+	}
+	if saved.save_state_valid && saved.grid_lines.len == 4 {
+		g.load_state()
+	} else {
+		g.reset()
+	}
 	return g
 }
 
@@ -290,3 +300,58 @@ pub fn (g &Game2048) can_move() bool {
 	}
 	return false
 }
+
+pub fn (mut g Game2048) save_progress() {
+	if g.score > g.best_score {
+		g.best_score = g.score
+	}
+	mut saved := load_2048_save()
+	saved.best_score = g.best_score
+	saved.score = g.score
+	saved.max_tile = g.max_tile
+	saved.save_state_valid = true
+	
+	mut lines := []string{}
+	for r in 0 .. 4 {
+		mut row_str := ''
+		for c in 0 .. 4 {
+			row_str += '${g.grid[r][c]},'
+		}
+		lines << row_str
+	}
+	saved.grid_lines = lines
+	save_2048_data(&saved)
+}
+
+pub fn (mut g Game2048) save_state() {
+	g.save_progress()
+	g.toast_msg = 'GAME SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g Game2048) load_state() {
+	saved := load_2048_save()
+	if !saved.save_state_valid || saved.grid_lines.len < 4 {
+		g.toast_msg = 'NO SAVE STATE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	if saved.best_score > 0 {
+		g.best_score = saved.best_score
+	}
+	g.score = saved.score
+	g.max_tile = saved.max_tile
+	for r in 0 .. 4 {
+		line := saved.grid_lines[r]
+		tokens := line.split(',')
+		for c in 0 .. 4 {
+			if c < tokens.len && tokens[c] != '' {
+				g.grid[r][c] = tokens[c].int()
+			}
+		}
+	}
+	g.state = .playing
+	g.toast_msg = 'GAME LOADED (F9)'
+	g.toast_timer = 2.0
+}
+

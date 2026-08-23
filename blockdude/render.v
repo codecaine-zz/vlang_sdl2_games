@@ -161,7 +161,7 @@ pub fn draw_blockdude_game(renderer &sdl.Renderer, game &BlockDudeGame) {
 		.playing {
 			draw_text_centered(renderer, 400, 492, '[A]/[D] Move & Turn  |  [W]/[S]/[Space] Pick Up / Drop Block',
 				1, lcd_bg)
-			draw_text_centered(renderer, 400, 514, '[U] Undo Move  |  [R] Restart Level  |  [N]/[P] Prev/Next Level',
+			draw_text_centered(renderer, 400, 514, '[U] Undo  |  [F5] Save  |  [F9] Load  |  [R] Restart  |  [N]/[P] Next/Prev',
 				1, lcd_bg)
 			draw_text_centered(renderer, 400, 545, 'Tip: Stack blocks to climb 1-step ledges and reach the Door!',
 				1, lcd_dark)
@@ -185,5 +185,11 @@ pub fn draw_blockdude_game(renderer &sdl.Renderer, game &BlockDudeGame) {
 			draw_text_centered(renderer, 400, 300, 'All 8 levels conquered.', 1, lcd_dark)
 			draw_text_centered(renderer, 400, 335, 'Press [R] to Play Again', 2, lcd_dark)
 		}
+	}
+
+	if game.toast_timer > 0 {
+		fill_rect(renderer, 270, 110, 260, 36, lcd_dark)
+		draw_rect(renderer, 270, 110, 260, 36, lcd_bg)
+		draw_text_centered(renderer, 400, 120, game.toast_msg, 2, lcd_bg)
 	}
 }

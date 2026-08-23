@@ -142,6 +142,12 @@ fn main() {
 						int(sdl.KeyCode.escape) {
 							running = false
 						}
+						int(sdl.KeyCode.f5) {
+							app.game.save_state()
+						}
+						int(sdl.KeyCode.f9) {
+							app.game.load_state()
+						}
 						int(sdl.KeyCode.left), int(sdl.KeyCode.a) {
 							app.game.move_player(-1, 0)
 						}
@@ -159,6 +165,7 @@ fn main() {
 						}
 						int(sdl.KeyCode.n) {
 							app.game.load_level(app.game.level_idx + 1)
+							app.game.save_progress()
 						}
 						int(sdl.KeyCode.m), int(sdl.KeyCode.o) {
 							app.sound_mgr.toggle_sound()

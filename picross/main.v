@@ -608,6 +608,12 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						return
+					} else if sym == int(sdl.KeyCode.f5) {
+						mut p := unsafe { &app.puzzles[app.current_idx] }
+						p.save_state(app.current_idx)
+					} else if sym == int(sdl.KeyCode.f9) {
+						mut p := unsafe { &app.puzzles[app.current_idx] }
+						p.load_state(app.current_idx)
 					} else if sym == int(sdl.KeyCode.r) {
 						mut p := unsafe { &app.puzzles[app.current_idx] }
 						p.reset()

@@ -84,11 +84,17 @@ mut:
 	wave_timer     f32
 	spawn_timer    f32
 	creeps_left    int = 10
+	toast_msg      string
+	toast_timer    f32
 }
 
 fn new_towerdefense_game() TowerDefenseGame {
 	mut g := TowerDefenseGame{
 		sound_mgr: new_sound_manager()
+	}
+	saved := load_td_save()
+	if saved.high_score > 0 {
+		g.high_score = saved.high_score
 	}
 	g.reset_game()
 	return g
@@ -396,5 +402,85 @@ fn (mut g TowerDefenseGame) place_turret(gx int, gy int, t_type TurretType) {
 			cooldown: 0.0
 			max_cooldown: cooldown
 		}
+		g.save_progress()
 	}
+}
+
+pub fn (mut g TowerDefenseGame) save_progress() {
+	if g.score > g.high_score {
+		g.high_score = g.score
+	}
+	mut saved := load_td_save()
+	saved.high_score = g.high_score
+	if g.wave > saved.max_wave {
+		saved.max_wave = g.wave
+	}
+	saved.wave = g.wave
+	saved.score = g.score
+	saved.lives = g.lives
+	saved.gold = g.gold
+
+	mut t_lines := []string{}
+	for t in g.turrets {
+		t_type_int := int(t.turret_type)
+		t_lines << '${t.grid_x},${t.grid_y},${t_type_int},${t.level}'
+	}
+	saved.turret_lines = t_lines
+	save_td_data(&saved)
+}
+
+pub fn (mut g TowerDefenseGame) save_state() {
+	g.save_progress()
+	mut saved := load_td_save()
+	saved.save_state_valid = true
+	save_td_data(&saved)
+
+	g.toast_msg = 'GAME SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g TowerDefenseGame) load_state() {
+	saved := load_td_save()
+	if !saved.save_state_valid {
+		g.toast_msg = 'NO SAVE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	if saved.high_score > 0 {
+		g.high_score = saved.high_score
+	}
+	g.wave = saved.wave
+	g.score = saved.score
+	g.lives = saved.lives
+	g.gold = saved.gold
+	g.turrets.clear()
+
+	for line in saved.turret_lines {
+		tokens := line.split(',')
+		if tokens.len == 4 {
+			gx := tokens[0].int()
+			gy := tokens[1].int()
+			t_type := unsafe { TurretType(tokens[2].int()) }
+			lvl := tokens[3].int()
+
+			range, dmg, cooldown := match t_type {
+				.laser { f32(140.0), f32(35.0), f32(0.25) }
+				.cannon { f32(110.0), f32(80.0), f32(0.85) }
+				.frost { f32(120.0), f32(20.0), f32(0.45) }
+			}
+			g.turrets << Turret{
+				grid_x: gx
+				grid_y: gy
+				turret_type: t_type
+				level: lvl
+				range: range
+				damage: dmg
+				cooldown: 0.0
+				max_cooldown: cooldown
+			}
+		}
+	}
+	g.state = .playing
+	g.toast_msg = 'GAME LOADED (F9)'
+	g.toast_timer = 2.0
 }

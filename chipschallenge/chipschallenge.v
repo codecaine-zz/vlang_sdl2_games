@@ -81,7 +81,8 @@ pub mut:
 	sound_event     string
 	banner_text     string
 	banner_timer    f64
-	showing_hint    bool
+	showing_hint        bool
+	max_level_unlocked  int
 }
 
 pub fn new_chips_game() ChipsGame {
@@ -89,7 +90,10 @@ pub fn new_chips_game() ChipsGame {
 		grid: [][]Tile{len: grid_size, init: []Tile{len: grid_size, init: Tile.floor}}
 	}
 	g.init_levels()
-	g.load_level(0)
+	saved := load_chips_save()
+	g.max_level_unlocked = saved.max_level_unlocked
+	start_lvl := if saved.current_level >= 0 && saved.current_level < g.levels.len { saved.current_level } else { 0 }
+	g.load_level(start_lvl)
 	return g
 }
 
@@ -421,3 +425,82 @@ pub fn (mut g ChipsGame) update(dt f64) {
 		}
 	}
 }
+
+pub fn (mut g ChipsGame) save_progress() {
+	mut saved := load_chips_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.level_idx
+	save_chips_data(&saved)
+}
+
+pub fn (mut g ChipsGame) save_state() {
+	mut saved := load_chips_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.level_idx
+	saved.save_state_valid = true
+	saved.state_level = g.level_idx
+	saved.state_player_x = g.player_x
+	saved.state_player_y = g.player_y
+	saved.state_chips_left = g.chips_left
+	saved.state_time_left = g.time_left
+	saved.state_keys = [g.red_keys, g.blue_keys, g.yellow_keys, g.green_keys]
+	saved.state_boots = [g.has_flippers, g.has_fire_boots, g.has_ice_skates, g.has_suction]
+
+	mut lines := []string{}
+	for x in 0 .. grid_size {
+		mut row_str := ''
+		for y in 0 .. grid_size {
+			t_code := int(g.grid[x][y])
+			row_str += '${t_code:02d},'
+		}
+		lines << row_str
+	}
+	saved.state_grid_lines = lines
+	save_chips_data(&saved)
+
+	g.banner_text = 'STATE SAVED (F5)'
+	g.banner_timer = 2.0
+}
+
+pub fn (mut g ChipsGame) load_state() {
+	saved := load_chips_save()
+	if !saved.save_state_valid || saved.state_grid_lines.len < grid_size {
+		g.banner_text = 'NO SAVE STATE FOUND'
+		g.banner_timer = 2.0
+		return
+	}
+	g.level_idx = saved.state_level
+	g.player_x = saved.state_player_x
+	g.player_y = saved.state_player_y
+	g.chips_left = saved.state_chips_left
+	g.time_left = saved.state_time_left
+	if saved.state_keys.len == 4 {
+		g.red_keys = saved.state_keys[0]
+		g.blue_keys = saved.state_keys[1]
+		g.yellow_keys = saved.state_keys[2]
+		g.green_keys = saved.state_keys[3]
+	}
+	if saved.state_boots.len == 4 {
+		g.has_flippers = saved.state_boots[0]
+		g.has_fire_boots = saved.state_boots[1]
+		g.has_ice_skates = saved.state_boots[2]
+		g.has_suction = saved.state_boots[3]
+	}
+	g.is_dead = false
+	g.is_win = false
+
+	for x in 0 .. grid_size {
+		line := saved.state_grid_lines[x]
+		tokens := line.split(',')
+		for y in 0 .. grid_size {
+			if y < tokens.len && tokens[y] != '' {
+				code := tokens[y].int()
+				g.grid[x][y] = unsafe { Tile(code) }
+			}
+		}
+	}
+
+	g.banner_text = 'STATE LOADED (F9)'
+	g.banner_timer = 2.0
+}
+

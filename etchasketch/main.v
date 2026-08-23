@@ -140,6 +140,10 @@ fn main() {
 			}
 		}
 
+		if app.game.toast_timer > 0 {
+			app.game.toast_timer -= dt
+		}
+
 		for sdl.poll_event(&event) != 0 {
 			match event.@type {
 				.quit {
@@ -151,6 +155,10 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.left) || sym == int(sdl.KeyCode.a) {
 						app.key_left = true
 					} else if sym == int(sdl.KeyCode.right) || sym == int(sdl.KeyCode.d) {

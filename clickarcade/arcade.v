@@ -115,7 +115,8 @@ pub fn new_arcade_manager() ArcadeManager {
 		}
 	}
 
-	return ArcadeManager{
+	saved := load_clickarcade_save()
+	mut am := ArcadeManager{
 		screen: .menu
 		buttons: btns
 		stars: stars
@@ -123,7 +124,14 @@ pub fn new_arcade_manager() ArcadeManager {
 		chain_game: new_chain_reaction_game()
 		whack_game: new_whack_monster_game()
 		blade_game: new_blade_slicer_game()
+		total_clicks: saved.total_clicks
+		gem_rush_best: saved.gem_rush_best
+		chain_best_score: saved.chain_best_score
+		chain_best_level: saved.chain_best_level
+		whack_best_score: saved.whack_best_score
+		blade_best_score: saved.blade_best_score
 	}
+	return am
 }
 
 pub fn (mut am ArcadeManager) update(dt f64, mut sm SoundManager) {
@@ -166,4 +174,16 @@ pub fn (mut am ArcadeManager) update(dt f64, mut sm SoundManager) {
 			}
 		}
 	}
+	am.save_progress()
+}
+
+pub fn (mut am ArcadeManager) save_progress() {
+	mut saved := load_clickarcade_save()
+	saved.total_clicks = am.total_clicks
+	saved.gem_rush_best = am.gem_rush_best
+	saved.chain_best_score = am.chain_best_score
+	saved.chain_best_level = am.chain_best_level
+	saved.whack_best_score = am.whack_best_score
+	saved.blade_best_score = am.blade_best_score
+	save_clickarcade_data(&saved)
 }

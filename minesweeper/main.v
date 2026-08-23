@@ -555,6 +555,10 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.r) {
 						app.restart_game()
 					} else if sym == int(sdl.KeyCode._1) {

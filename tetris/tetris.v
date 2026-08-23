@@ -74,13 +74,17 @@ pub mut:
 	lines      int
 	level      int = 1
 	game_over  bool
-	is_paused  bool
+	is_paused    bool
 	last_cleared int
+	high_score   int
+	toast_msg    string
+	toast_timer  f64
 }
 
 fn new_tetris_game() TetrisGame {
 	p1_kind := rand.intn(7) or { 0 } + 1
 	p2_kind := rand.intn(7) or { 0 } + 1
+	saved := load_tetris_save()
 	mut game := TetrisGame{
 		grid:       [20][10]int{}
 		curr_piece: new_piece(p1_kind)
@@ -91,6 +95,7 @@ fn new_tetris_game() TetrisGame {
 		level:      1
 		game_over:  false
 		is_paused:  false
+		high_score: saved.high_score
 	}
 	return game
 }
@@ -290,4 +295,59 @@ fn (mut g TetrisGame) reset() {
 	g.level = 1
 	g.game_over = false
 	g.is_paused = false
+}
+
+pub fn (mut g TetrisGame) save_progress() {
+	if g.score > g.high_score {
+		g.high_score = g.score
+	}
+	mut saved := load_tetris_save()
+	saved.high_score = g.high_score
+	saved.score = g.score
+	saved.lines = g.lines
+	saved.level = g.level
+	saved.save_state_valid = true
+
+	mut lines := []string{}
+	for r in 0 .. 20 {
+		mut row_str := ''
+		for c in 0 .. 10 {
+			row_str += '${g.grid[r][c]},'
+		}
+		lines << row_str
+	}
+	saved.grid_lines = lines
+	save_tetris_data(&saved)
+}
+
+pub fn (mut g TetrisGame) save_state() {
+	g.save_progress()
+	g.toast_msg = 'GAME SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g TetrisGame) load_state() {
+	saved := load_tetris_save()
+	if !saved.save_state_valid || saved.grid_lines.len < 20 {
+		g.toast_msg = 'NO SAVE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	if saved.high_score > 0 { g.high_score = saved.high_score }
+	g.score = saved.score
+	g.lines = saved.lines
+	g.level = saved.level
+
+	for r in 0 .. 20 {
+		line := saved.grid_lines[r]
+		tokens := line.split(',')
+		for c in 0 .. 10 {
+			if c < tokens.len && tokens[c] != '' {
+				g.grid[r][c] = tokens[c].int()
+			}
+		}
+	}
+	g.game_over = false
+	g.toast_msg = 'GAME LOADED (F9)'
+	g.toast_timer = 2.0
 }

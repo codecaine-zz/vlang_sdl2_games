@@ -420,6 +420,9 @@ fn (mut app App) render() {
 fn (mut app App) update(dt f64) {
 	app.anim_tick += dt
 	mut cave := unsafe { &app.caves[app.current_idx] }
+	if cave.toast_timer > 0 {
+		cave.toast_timer -= dt
+	}
 	cave.update(dt, &app.sound_mgr)
 	app.sound_mgr.update_bgm(!cave.game_over && !cave.level_completed)
 }
@@ -511,12 +514,18 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						return
+					} else if sym == int(sdl.KeyCode.f5) {
+						cave.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						cave.load_state()
 					} else if sym == int(sdl.KeyCode.r) {
 						app.reset_current_level()
 					} else if sym == int(sdl.KeyCode.p) || sym == int(sdl.KeyCode.leftbracket) {
 						app.change_level(-1)
+						cave.save_progress()
 					} else if sym == int(sdl.KeyCode.n) || sym == int(sdl.KeyCode.rightbracket) {
 						app.change_level(1)
+						cave.save_progress()
 					} else if sym == int(sdl.KeyCode.s) {
 						app.sound_mgr.toggle_sound()
 					} else if sym == int(sdl.KeyCode.up) || sym == int(sdl.KeyCode.w) {

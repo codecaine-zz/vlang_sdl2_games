@@ -115,6 +115,10 @@ fn main() {
 		app.game.anim_px += (target_x - app.game.anim_px) * math.min(dt * 18.0, 1.0)
 		app.game.anim_py += (target_y - app.game.anim_py) * math.min(dt * 18.0, 1.0)
 
+		if app.game.toast_timer > 0 {
+			app.game.toast_timer -= dt
+		}
+
 		for sdl.poll_event(&event) != 0 {
 			match event.@type {
 				.quit {
@@ -126,6 +130,10 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.r) {
 						app.game.load_level(app.game.current_level)
 					} else if sym == int(sdl.KeyCode.u) || sym == int(sdl.KeyCode.z) {
@@ -133,15 +141,18 @@ fn main() {
 					} else if sym == int(sdl.KeyCode.n) {
 						if app.game.current_level < sokoban_levels.len - 1 {
 							app.game.load_level(app.game.current_level + 1)
+							app.game.save_progress()
 						}
 					} else if sym == int(sdl.KeyCode.p) {
 						if app.game.current_level > 0 {
 							app.game.load_level(app.game.current_level - 1)
+							app.game.save_progress()
 						}
 					} else if sym == int(sdl.KeyCode.space) {
 						if app.game.level_cleared {
 							if app.game.current_level < sokoban_levels.len - 1 {
 								app.game.load_level(app.game.current_level + 1)
+								app.game.save_progress()
 							}
 						}
 					} else if sym == int(sdl.KeyCode.m) {

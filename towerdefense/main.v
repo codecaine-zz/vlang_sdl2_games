@@ -125,6 +125,12 @@ fn main() {
 					else if sym == int(sdl.KeyCode.escape) {
 						running = false
 					}
+					else if sym == int(sdl.KeyCode.f5) {
+						game.save_state()
+					}
+					else if sym == int(sdl.KeyCode.f9) {
+						game.load_state()
+					}
 				}
 				else {}
 			}
@@ -135,6 +141,9 @@ fn main() {
 		last_ticks = current_ticks
 
 		capped_dt := if dt > 0.05 { f32(0.05) } else { dt }
+		if game.toast_timer > 0 {
+			game.toast_timer -= capped_dt
+		}
 		game.update(capped_dt)
 		game.sound_mgr.update_bgm(game.state == .playing)
 		render_towerdefense_game(renderer, mut game, tex_mgr.sprite_texture)

@@ -65,11 +65,18 @@ pub mut:
 	game_round      int
 	game_wins       int
 	mini_timer      f64
+	toast_msg       string
+	toast_timer     f64
 }
 
 pub fn new_tamagotchi_game() TamagotchiGame {
 	mut g := TamagotchiGame{}
-	g.reset_pet()
+	saved := load_tama_save()
+	if saved.save_state_valid {
+		g.load_state()
+	} else {
+		g.reset_pet()
+	}
 	return g
 }
 
@@ -328,4 +335,50 @@ fn (mut g TamagotchiGame) advance_mini_game() {
 
 fn (mut g TamagotchiGame) finish_active_action() {
 	g.active_action = .none
+	g.save_progress()
+}
+
+pub fn (mut g TamagotchiGame) save_progress() {
+	mut saved := load_tama_save()
+	saved.save_state_valid = true
+	saved.stage_idx = int(g.stage)
+	saved.name = g.name
+	saved.age_days = g.age_days
+	saved.weight_oz = g.weight_oz
+	saved.hunger = g.hunger
+	saved.happiness = g.happiness
+	saved.discipline = g.discipline
+	saved.energy = g.energy
+	saved.is_sleeping = g.is_sleeping
+	saved.is_sick = g.is_sick
+	saved.poop_count = g.poop_count
+	save_tama_data(&saved)
+}
+
+pub fn (mut g TamagotchiGame) save_state() {
+	g.save_progress()
+	g.toast_msg = 'PET SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g TamagotchiGame) load_state() {
+	saved := load_tama_save()
+	if !saved.save_state_valid {
+		g.toast_msg = 'NO SAVE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	g.stage = unsafe { PetStage(saved.stage_idx) }
+	g.name = saved.name
+	g.age_days = saved.age_days
+	g.weight_oz = saved.weight_oz
+	g.hunger = saved.hunger
+	g.happiness = saved.happiness
+	g.discipline = saved.discipline
+	g.energy = saved.energy
+	g.is_sleeping = saved.is_sleeping
+	g.is_sick = saved.is_sick
+	g.poop_count = saved.poop_count
+	g.toast_msg = 'PET LOADED (F9)'
+	g.toast_timer = 2.0
 }

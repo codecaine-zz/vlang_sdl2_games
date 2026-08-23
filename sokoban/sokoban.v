@@ -42,12 +42,18 @@ pub mut:
 	total_targets  int
 	targets_filled int
 	editor_mode    bool
-	editor_brush   Tile = .wall
+	editor_brush       Tile = .wall
+	max_level_unlocked int
+	toast_msg          string
+	toast_timer        f64
 }
 
 pub fn new_sokoban_game() SokobanGame {
 	mut game := SokobanGame{}
-	game.load_level(0)
+	saved := load_sokoban_save()
+	game.max_level_unlocked = saved.max_level_unlocked
+	start_lvl := if saved.current_level >= 0 && saved.current_level < sokoban_levels.len { saved.current_level } else { 0 }
+	game.load_level(start_lvl)
 	return game
 }
 
@@ -297,6 +303,10 @@ pub fn (mut g SokobanGame) check_win() bool {
 	g.targets_filled = on_target
 	if g.total_targets > 0 && on_target == g.total_targets {
 		g.level_cleared = true
+		if g.current_level >= g.max_level_unlocked {
+			g.max_level_unlocked = g.current_level + 1
+		}
+		g.save_progress()
 		return true
 	}
 	return false
@@ -315,3 +325,67 @@ pub fn (g &SokobanGame) calculate_stars() int {
 		return 1
 	}
 }
+
+pub fn (mut g SokobanGame) save_progress() {
+	mut saved := load_sokoban_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.current_level
+	save_sokoban_data(&saved)
+}
+
+pub fn (mut g SokobanGame) save_state() {
+	mut saved := load_sokoban_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.current_level
+	saved.save_state_valid = true
+	saved.state_level = g.current_level
+	saved.state_steps = g.steps
+	saved.state_pushes = g.pushes
+	saved.state_player_r = g.player_r
+	saved.state_player_c = g.player_c
+	
+	mut lines := []string{}
+	for r in 0 .. g.rows {
+		mut row_str := ''
+		for c in 0 .. g.cols {
+			ch := match g.grid[r][c] {
+				.wall { `#` }
+				.floor { ` ` }
+				.target { `.` }
+				.crate { `$` }
+				.crate_on_target { `*` }
+				.player { `@` }
+				.player_on_target { `+` }
+				else { ` ` }
+			}
+			row_str += ch.str()
+		}
+		lines << row_str
+	}
+	saved.state_grid_lines = lines
+	save_sokoban_data(&saved)
+
+	g.toast_msg = 'STATE SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g SokobanGame) load_state() {
+	saved := load_sokoban_save()
+	if !saved.save_state_valid || saved.state_grid_lines.len == 0 {
+		g.toast_msg = 'NO SAVE STATE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	g.current_level = saved.state_level
+	g.steps = saved.state_steps
+	g.pushes = saved.state_pushes
+	g.player_r = saved.state_player_r
+	g.player_c = saved.state_player_c
+	g.load_from_lines(saved.state_grid_lines)
+	g.steps = saved.state_steps
+	g.pushes = saved.state_pushes
+
+	g.toast_msg = 'STATE LOADED (F9)'
+	g.toast_timer = 2.0
+}
+

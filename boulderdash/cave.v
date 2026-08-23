@@ -45,6 +45,11 @@ pub mut:
 	amoeba_timer      f64
 	explosion_timer   f64
 	explosions        []Point
+	high_score        int
+	max_cave_unlocked int
+	current_cave_idx  int
+	toast_msg         string
+	toast_timer       f64
 }
 
 fn new_cave_from_layout(name string, layout []string, needed int, time_limit int) Cave {
@@ -336,4 +341,80 @@ fn (mut c Cave) update(dt f64, sm &SoundManager) {
 		c.enemy_timer = 0.0
 		c.update_enemies(sm)
 	}
+}
+
+pub fn (mut c Cave) save_progress() {
+	if c.score > c.high_score {
+		c.high_score = c.score
+	}
+	mut saved := load_boulder_save()
+	saved.high_score = c.high_score
+	saved.max_cave_unlocked = c.max_cave_unlocked
+	saved.current_cave = c.current_cave_idx
+	save_boulder_data(&saved)
+}
+
+pub fn (mut c Cave) save_state() {
+	if c.score > c.high_score {
+		c.high_score = c.score
+	}
+	mut saved := load_boulder_save()
+	saved.high_score = c.high_score
+	saved.max_cave_unlocked = c.max_cave_unlocked
+	saved.current_cave = c.current_cave_idx
+	saved.save_state_valid = true
+	saved.state_cave = c.current_cave_idx
+	saved.state_score = c.score
+	saved.state_lives = c.lives
+	saved.state_diamonds_got = c.diamonds_got
+	saved.state_time_left = c.time_left
+	saved.state_player_r = c.player_pos.r
+	saved.state_player_c = c.player_pos.c
+
+	mut lines := []string{}
+	for r in 0 .. c.height {
+		mut row_str := ''
+		for col in 0 .. c.width {
+			t_code := c.grid[r][col]
+			row_str += '${t_code:02d},'
+		}
+		lines << row_str
+	}
+	saved.state_grid_lines = lines
+	save_boulder_data(&saved)
+
+	c.toast_msg = 'STATE SAVED (F5)'
+	c.toast_timer = 2.0
+}
+
+pub fn (mut c Cave) load_state() {
+	saved := load_boulder_save()
+	if !saved.save_state_valid || saved.state_grid_lines.len < c.height {
+		c.toast_msg = 'NO SAVE STATE FOUND'
+		c.toast_timer = 2.0
+		return
+	}
+	c.current_cave_idx = saved.state_cave
+	c.score = saved.state_score
+	c.lives = saved.state_lives
+	c.diamonds_got = saved.state_diamonds_got
+	c.time_left = saved.state_time_left
+	c.player_pos = Point{r: saved.state_player_r, c: saved.state_player_c}
+	c.player_dead = false
+	c.game_over = false
+
+	for r in 0 .. c.height {
+		if r < saved.state_grid_lines.len {
+			line := saved.state_grid_lines[r]
+			tokens := line.split(',')
+			for col in 0 .. c.width {
+				if col < tokens.len && tokens[col] != '' {
+					c.grid[r][col] = tokens[col].int()
+				}
+			}
+		}
+	}
+
+	c.toast_msg = 'STATE LOADED (F9)'
+	c.toast_timer = 2.0
 }

@@ -210,6 +210,12 @@ fn main() {
 								running = false
 							}
 						}
+						int(sdl.KeyCode.f5) {
+							app.game.save_state()
+						}
+						int(sdl.KeyCode.f9) {
+							app.game.load_state()
+						}
 						// Up / Down arrow keys cycle through commodities in Market view
 						int(sdl.KeyCode.up) {
 							if app.game.ui_state == .market {

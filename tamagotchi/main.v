@@ -90,6 +90,10 @@ fn main() {
 		dt := math.min(f64(now - last_ticks) / 1000.0, 0.05)
 		last_ticks = now
 
+		if app.game.toast_timer > 0 {
+			app.game.toast_timer -= dt
+		}
+
 		for sdl.poll_event(&event) != 0 {
 			match event.@type {
 				.quit {
@@ -101,6 +105,10 @@ fn main() {
 						toggle_fullscreen(window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.a) || sym == int(sdl.KeyCode.left) {
 						app.game.button_a()
 						app.sound_mgr.play_btn_click()

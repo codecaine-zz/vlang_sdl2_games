@@ -19,6 +19,8 @@ pub mut:
 	col_solved  []bool
 	completed   bool
 	art_color   Color
+	toast_msg   string
+	toast_timer f64
 }
 
 fn compute_row_clues(solution [][]bool) [][]int {
@@ -183,4 +185,60 @@ fn (mut p Puzzle) use_hint() (int, int, bool) {
 		}
 	}
 	return -1, -1, false
+}
+
+pub fn (mut p Puzzle) save_progress(puzzle_idx int) {
+	mut saved := load_picross_save()
+	saved.puzzle_idx = puzzle_idx
+	if p.completed {
+		if puzzle_idx !in saved.solved_puzzles {
+			saved.solved_puzzles << puzzle_idx
+		}
+	}
+	save_picross_data(&saved)
+}
+
+pub fn (mut p Puzzle) save_state(puzzle_idx int) {
+	p.save_progress(puzzle_idx)
+	mut saved := load_picross_save()
+	saved.save_state_valid = true
+	saved.state_puzzle_idx = puzzle_idx
+
+	mut lines := []string{}
+	for r in 0 .. p.height {
+		mut row_str := ''
+		for c in 0 .. p.width {
+			st := int(p.grid[r][c])
+			row_str += '${st},'
+		}
+		lines << row_str
+	}
+	saved.grid_lines = lines
+	save_picross_data(&saved)
+
+	p.toast_msg = 'GAME SAVED (F5)'
+	p.toast_timer = 2.0
+}
+
+pub fn (mut p Puzzle) load_state(puzzle_idx int) {
+	saved := load_picross_save()
+	if !saved.save_state_valid || saved.grid_lines.len < p.height {
+		p.toast_msg = 'NO SAVE FOUND'
+		p.toast_timer = 2.0
+		return
+	}
+	for r in 0 .. p.height {
+		if r < saved.grid_lines.len {
+			line := saved.grid_lines[r]
+			tokens := line.split(',')
+			for c in 0 .. p.width {
+				if c < tokens.len && tokens[c] != '' {
+					p.grid[r][c] = unsafe { CellState(tokens[c].int()) }
+				}
+			}
+		}
+	}
+	p.update_status()
+	p.toast_msg = 'GAME LOADED (F9)'
+	p.toast_timer = 2.0
 }

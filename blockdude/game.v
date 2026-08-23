@@ -29,17 +29,20 @@ pub:
 
 pub struct BlockDudeGame {
 pub mut:
-	grid           [][]TileType
-	width          int
-	height         int
-	player_x       int
-	player_y       int
-	facing         Direction
-	carrying_block bool
-	current_level  int
-	moves_count    int
-	state          GameState
-	history        []HistorySnapshot
+	grid               [][]TileType
+	width              int
+	height             int
+	player_x           int
+	player_y           int
+	facing             Direction
+	carrying_block     bool
+	current_level      int
+	moves_count        int
+	state              GameState
+	history            []HistorySnapshot
+	max_level_unlocked int
+	toast_msg          string
+	toast_timer        f64
 }
 
 const levels_raw = [
@@ -386,6 +389,10 @@ pub fn (mut g BlockDudeGame) check_door() {
 	if g.grid[g.player_y][g.player_x] == .door {
 		if g.current_level + 1 < levels_raw.len {
 			g.state = .level_complete
+			if g.current_level >= g.max_level_unlocked {
+				g.max_level_unlocked = g.current_level + 1
+			}
+			g.save_progress()
 		} else {
 			g.state = .game_won
 		}
@@ -395,15 +402,91 @@ pub fn (mut g BlockDudeGame) check_door() {
 pub fn (mut g BlockDudeGame) next_level() {
 	if g.current_level + 1 < levels_raw.len {
 		g.load_level(g.current_level + 1)
+		g.save_progress()
 	}
 }
 
 pub fn (mut g BlockDudeGame) prev_level() {
 	if g.current_level > 0 {
 		g.load_level(g.current_level - 1)
+		g.save_progress()
 	}
 }
 
 pub fn (mut g BlockDudeGame) restart_level() {
 	g.load_level(g.current_level)
 }
+
+pub fn (mut g BlockDudeGame) save_progress() {
+	mut saved := load_blockdude_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.current_level
+	save_blockdude_data(&saved)
+}
+
+pub fn (mut g BlockDudeGame) save_state() {
+	mut saved := load_blockdude_save()
+	saved.max_level_unlocked = g.max_level_unlocked
+	saved.current_level = g.current_level
+	saved.save_state_valid = true
+	saved.state_level = g.current_level
+	saved.state_player_x = g.player_x
+	saved.state_player_y = g.player_y
+	saved.state_facing_right = (g.facing == .right)
+	saved.state_carrying = g.carrying_block
+	saved.state_moves = g.moves_count
+	
+	mut lines := []string{}
+	for y in 0 .. g.height {
+		mut row_str := ''
+		for x in 0 .. g.width {
+			ch := match g.grid[y][x] {
+				.wall { `#` }
+				.block { `B` }
+				.door { `D` }
+				else { ` ` }
+			}
+			row_str += ch.str()
+		}
+		lines << row_str
+	}
+	saved.state_grid_lines = lines
+	save_blockdude_data(&saved)
+
+	g.toast_msg = 'STATE SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g BlockDudeGame) load_state() {
+	saved := load_blockdude_save()
+	if !saved.save_state_valid || saved.state_grid_lines.len == 0 {
+		g.toast_msg = 'NO SAVE STATE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	g.current_level = saved.state_level
+	g.height = saved.state_grid_lines.len
+	g.width = if g.height > 0 { saved.state_grid_lines[0].len } else { 0 }
+	g.grid = [][]TileType{len: g.height, init: []TileType{len: g.width, init: .empty}}
+	for y in 0 .. g.height {
+		line := saved.state_grid_lines[y]
+		for x in 0 .. line.len {
+			match line[x] {
+				`#` { g.grid[y][x] = .wall }
+				`B` { g.grid[y][x] = .block }
+				`D` { g.grid[y][x] = .door }
+				else { g.grid[y][x] = .empty }
+			}
+		}
+	}
+	g.player_x = saved.state_player_x
+	g.player_y = saved.state_player_y
+	g.facing = if saved.state_facing_right { Direction.right } else { Direction.left }
+	g.carrying_block = saved.state_carrying
+	g.moves_count = saved.state_moves
+	g.state = .playing
+
+	g.toast_msg = 'STATE LOADED (F9)'
+	g.toast_timer = 2.0
+}
+

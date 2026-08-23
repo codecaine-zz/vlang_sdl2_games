@@ -62,6 +62,9 @@ pub mut:
 	banner_text     string
 	banner_timer    f64
 	selected_drug   int
+	high_score      int
+	toast_msg       string
+	toast_timer     f64
 }
 
 pub fn new_dopewars_game() DopeWarsGame {
@@ -342,4 +345,63 @@ pub fn (mut g DopeWarsGame) update(dt f64) {
 	if g.banner_timer > 0.0 {
 		g.banner_timer -= dt
 	}
+	if g.toast_timer > 0.0 {
+		g.toast_timer -= dt
+	}
+}
+
+pub fn (mut g DopeWarsGame) save_progress() {
+	net_worth := g.cash + g.bank - g.debt
+	if net_worth > g.high_score {
+		g.high_score = net_worth
+	}
+	mut saved := load_dope_save()
+	saved.high_score = g.high_score
+	saved.day = g.day
+	saved.cash = g.cash
+	saved.bank = g.bank
+	saved.debt = g.debt
+	saved.health = g.health
+	saved.max_pockets = g.max_pockets
+	saved.location_idx = int(g.current_loc)
+
+	mut pairs := []string{}
+	for k, v in g.inventory {
+		if v > 0 {
+			pairs << '${k}:${v}'
+		}
+	}
+	saved.inventory_pairs = pairs
+	save_dope_data(&saved)
+}
+
+pub fn (mut g DopeWarsGame) save_state() {
+	g.save_progress()
+	g.toast_msg = 'GAME SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g DopeWarsGame) load_state() {
+	saved := load_dope_save()
+	if saved.high_score > 0 {
+		g.high_score = saved.high_score
+	}
+	g.day = saved.day
+	g.cash = saved.cash
+	g.bank = saved.bank
+	g.debt = saved.debt
+	g.health = saved.health
+	g.max_pockets = saved.max_pockets
+	g.current_loc = unsafe { Location(saved.location_idx) }
+	
+	g.inventory.clear()
+	for pair in saved.inventory_pairs {
+		parts := pair.split(':')
+		if parts.len == 2 {
+			g.inventory[parts[0]] = parts[1].int()
+		}
+	}
+	g.ui_state = .market
+	g.toast_msg = 'GAME LOADED (F9)'
+	g.toast_timer = 2.0
 }

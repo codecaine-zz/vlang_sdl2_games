@@ -66,10 +66,16 @@ pub mut:
 	claw           Claw
 	items          []MineItem
 	high_score     int = 8500
+	max_level      int = 1
+	toast_msg      string
+	toast_timer    f64
 }
 
 pub fn new_gold_miner_game() GoldMinerGame {
 	mut g := GoldMinerGame{}
+	saved := load_gold_save()
+	if saved.high_score > 0 { g.high_score = saved.high_score }
+	if saved.max_level > 0 { g.max_level = saved.max_level }
 	g.reset_game()
 	return g
 }
@@ -280,13 +286,67 @@ pub fn (mut g GoldMinerGame) update(dt f64) MinerEvents {
 					g.claw.hooked_item = -1
 					ev.item_reeled = true
 
-					if g.money > g.high_score {
+				if g.money > g.high_score {
 						g.high_score = g.money
 					}
+					g.save_progress()
 				}
 			}
 		}
 	}
 
+	if g.toast_timer > 0.0 {
+		g.toast_timer -= dt
+	}
 	return ev
+}
+
+pub fn (mut g GoldMinerGame) save_progress() {
+	if g.money > g.high_score {
+		g.high_score = g.money
+	}
+	mut saved := load_gold_save()
+	saved.high_score = g.high_score
+	if g.level > saved.max_level {
+		saved.max_level = g.level
+	}
+	saved.money = g.money
+	saved.level = g.level
+	saved.target_money = g.target_money
+	saved.time_left = g.time_left
+	saved.dynamite_count = g.dynamite_count
+	saved.has_strength = g.has_strength
+	saved.has_clover = g.has_clover
+	save_gold_data(&saved)
+}
+
+pub fn (mut g GoldMinerGame) save_state() {
+	g.save_progress()
+	mut saved := load_gold_save()
+	saved.save_state_valid = true
+	save_gold_data(&saved)
+
+	g.toast_msg = 'GAME SAVED (F5)'
+	g.toast_timer = 2.0
+}
+
+pub fn (mut g GoldMinerGame) load_state() {
+	saved := load_gold_save()
+	if !saved.save_state_valid {
+		g.toast_msg = 'NO SAVE FOUND'
+		g.toast_timer = 2.0
+		return
+	}
+	if saved.high_score > 0 { g.high_score = saved.high_score }
+	g.money = saved.money
+	g.level = saved.level
+	g.target_money = saved.target_money
+	g.time_left = saved.time_left
+	g.dynamite_count = saved.dynamite_count
+	g.has_strength = saved.has_strength
+	g.has_clover = saved.has_clover
+	g.state = .mining
+
+	g.toast_msg = 'GAME LOADED (F9)'
+	g.toast_timer = 2.0
 }

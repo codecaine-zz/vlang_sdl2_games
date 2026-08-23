@@ -54,6 +54,7 @@ fn (app &App) run() {
 	mut mutable_app := unsafe { &App(app) }
 	mut event := sdl.Event{}
 	mut running := true
+	mut last_time := sdl.get_ticks()
 
 	for running {
 		if os.getenv('SNAPSHOT') == '1' {
@@ -71,6 +72,14 @@ fn (app &App) run() {
 			break
 		}
 
+		current_time := sdl.get_ticks()
+		dt := f64(current_time - last_time) / 1000.0
+		last_time = current_time
+
+		if mutable_app.game.toast_timer > 0 {
+			mutable_app.game.toast_timer -= dt
+		}
+
 		for sdl.poll_event(&event) != 0 {
 			match unsafe { event.type } {
 				.quit {
@@ -82,6 +91,10 @@ fn (app &App) run() {
 						toggle_fullscreen(mutable_app.window)
 					} else if sym == int(sdl.KeyCode.escape) {
 						running = false
+					} else if sym == int(sdl.KeyCode.f5) {
+						mutable_app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						mutable_app.game.load_state()
 					} else if sym == int(sdl.KeyCode.m) {
 						mutable_app.sound_mgr.toggle_sound()
 					} else if sym == int(sdl.KeyCode.u) {

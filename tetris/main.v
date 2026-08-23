@@ -598,6 +598,10 @@ fn (mut app App) run() {
 						toggle_fullscreen(app.window)
 					} else if sym == int(sdl.KeyCode.r) {
 						app.reset_game()
+					} else if sym == int(sdl.KeyCode.f5) {
+						app.game.save_state()
+					} else if sym == int(sdl.KeyCode.f9) {
+						app.game.load_state()
 					} else if sym == int(sdl.KeyCode.p) {
 						app.toggle_pause()
 					} else if sym == int(sdl.KeyCode.m) {
