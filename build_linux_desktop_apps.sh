@@ -3,10 +3,11 @@ set -euo pipefail
 
 ROOT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 DESKTOP_DIR="${1:-$HOME/Desktop/VSDL_Games}"
-APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications/VSDL_Games"
+APP_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/applications"
 ICONS_DIR="$ROOT_DIR/icons/png"
 JOBS="${JOBS:-$(nproc 2>/dev/null || echo 4)}"
 
+export PATH="$HOME/.local/bin:/home/linuxbrew/.linuxbrew/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin${PATH:+:$PATH}"
 export PKG_CONFIG_PATH="/home/linuxbrew/.linuxbrew/lib/pkgconfig${PKG_CONFIG_PATH:+:$PKG_CONFIG_PATH}"
 export LD_LIBRARY_PATH="/home/linuxbrew/.linuxbrew/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
 
@@ -16,23 +17,34 @@ if [[ ! -d "$ICONS_DIR" ]] || [[ -z "$(ls -A "$ICONS_DIR" 2>/dev/null)" ]]; then
   bash "$ROOT_DIR/generate_icons.sh"
 fi
 
-cleanup_old_desktop_files() {
-  for target in "$DESKTOP_DIR" "$APP_DIR"; do
-    if [ -d "$target" ]; then
-      find "$target" -maxdepth 1 -type f -name '*.desktop' -delete
-    else
-      mkdir -p "$target"
-    fi
-  done
-}
-
-cleanup_old_desktop_files
-mkdir -p "$DESKTOP_DIR" "$APP_DIR"
-
 mapfile -t game_dirs < <(
   find "$ROOT_DIR" -mindepth 1 -maxdepth 1 -type d \
     ! -name "assets" ! -name "screenshots" -print | sort
 )
+
+cleanup_old_desktop_files() {
+  for game_dir in "${game_dirs[@]}"; do
+    game_name="$(basename "$game_dir")"
+    rm -f "$APP_DIR/${game_name}.desktop"
+  done
+
+  if [ -d "$DESKTOP_DIR" ]; then
+    find "$DESKTOP_DIR" -maxdepth 1 -type f -name '*.desktop' -delete
+  else
+    mkdir -p "$DESKTOP_DIR"
+  fi
+
+  legacy_dir="${APP_DIR}/VSDL_Games"
+  if [ -d "$legacy_dir" ]; then
+    find "$legacy_dir" -maxdepth 1 -type f -name '*.desktop' -delete
+    rmdir "$legacy_dir" 2>/dev/null || true
+  fi
+
+  mkdir -p "$APP_DIR"
+}
+
+cleanup_old_desktop_files
+mkdir -p "$DESKTOP_DIR" "$APP_DIR"
 
 build_one() {
   game_dir="$1"

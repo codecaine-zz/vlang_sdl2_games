@@ -67,7 +67,9 @@ v install sdl
 > This script compiles every game folder in parallel, creates a native binary next to each game, and generates Ubuntu `.desktop` launchers in:
 >
 > - `~/Desktop/VSDL_Games`
-> - `~/.local/share/applications/VSDL_Games`
+> - `~/.local/share/applications`
+>
+> The legacy nested `~/.local/share/applications/VSDL_Games` folder is not used anymore to avoid duplicate app-menu entries.
 >
 > After that, you can launch games from the Ubuntu app menu or by double-clicking the generated desktop files.
 >
